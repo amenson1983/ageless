@@ -7,6 +7,7 @@ import string as st
 from openpyxl import load_workbook
 
 class CFunctions:
+
     def item_match_in_list_by_percent(self,item,list_values,percent):
         s = process.extractOne(item, list_values)
         matched_value = ''
@@ -37,7 +38,30 @@ class CFunctions:
         sheet.to_excel(writer, sheet_name, index=False)
         writer.save()
 
+    def melt_df(self,df, hold_columns_list, feature_rename_to, value_rename_to):
+        df = df.melt(hold_columns_list).rename(columns={'variable':feature_rename_to,'value':value_rename_to})
+        print(df.columns)
+        print(df)
+        return df
+
+    def loc_df_by_column_equals_to(self,df,column_to_compare,value):
+        self.df = df.loc[df[column_to_compare] == value ]
+        return self.df
+
+    def key_field_two_columns_insertion(self,df,columns_list,key_field_name):
+        df[key_field_name] = df[columns_list[0]].map(str) + df[columns_list[1]].map(str)
+        return df
+
+    def key_field_three_columns_insertion(self,df,columns_list,key_field_name):
+        df[key_field_name] = df[columns_list[0]].map(str) + df[columns_list[1]].map(str) + df[columns_list[2]].map(str)
+        return df
+
+    def key_field_four_columns_insertion(self, df, columns_list, key_field_name):
+        df[key_field_name] = df[columns_list[0]].map(str) + df[columns_list[1]].map(str) + df[columns_list[2]].map(str) + df[columns_list[3]].map(str)
+        return df
+
 class COperations:
+
     def list_correction_to_ethalon_naming_list(self,incoming_list,ethalon_naming_list,percent):
         corrected_list, problematic_items = [], {}
 
@@ -75,7 +99,7 @@ class COperations:
             print(problematic_items)
         df['incoming_list_1'] = incoming_list_1
         df['result'] = corrected_list
-
+        mapping = dict(zip(incoming_list_1,corrected_list))
         df_error = pd.DataFrame()
         df_error['problematic_items'] = problematic_items
 
@@ -83,29 +107,30 @@ class COperations:
         f.soft_add_sheet_to_existing_xlsx(resulting_file, df_error, 'problematic_items')
         os.startfile(resulting_file)
         print(f"Corrected list with applied actual percent threshold {percent}%: \n{corrected_list}")
+        return mapping
 
 
 f = CFunctions()
 o = COperations()
 
 
-
-
-
 if __name__ == '__main__':
-
-    #incoming_list = ['prague_e,','kiev','kopenhagen','stock_gohlm','paris ','berlin','Berdichev']
-    #ethalon_naming_list = ['Berlin','Kyiv','Prague','Kopenhagen','Paris','Stockgohlm','Berdychiv']
-
-    percent = 71
+    percent = 72
     unnecessary_symbols_list = ["№","_","%","-","/","|",",",".",".",",","!"," "]
     resulting_file = 'result.xlsx'
+
     df = pd.read_excel('test.xlsx',engine='openpyxl')
     incoming_list = df['item_sales_report'].values
     ethalon_naming_list = df['item_kpi_report'].values
 
-    o.complex_mapping_to_ethalon(incoming_list,ethalon_naming_list,resulting_file,unnecessary_symbols_list)
+    #incoming_list = ['prague_e,','kiev','kopenhagen','stock_gohlm','paris ','berlin','Berdichev']
+    #ethalon_naming_list = ['Berlin','Kyiv','Prague','Kopenhagen','Paris','Stockgohlm','Berdychiv']
 
+    #mapping_dictionary = o.complex_mapping_to_ethalon(incoming_list,ethalon_naming_list,resulting_file,unnecessary_symbols_list)
 
+    df = f.key_field_two_columns_insertion(df,['item_sales_report', 'item_kpi_report'],'key')
+    for key in df['key'].values:
+        changed_string,mapping_item_dictionary = f.intermediate_changed_list(key,unnecessary_symbols_list)
+        print(changed_string)
 
 
