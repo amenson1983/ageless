@@ -28,6 +28,15 @@ class CFunctions:
         mapping_item_dictionary.update({changed_string:string})
         return changed_string,mapping_item_dictionary
 
+    def soft_add_sheet_to_existing_xlsx(self,full_path,df,sheet_name):
+        sheet = df
+        book = load_workbook(full_path)
+        writer = pd.ExcelWriter(full_path, engine='openpyxl')
+        writer.book = book
+        writer.sheets = dict((ws.title, ws) for ws in book.worksheets)
+        sheet.to_excel(writer, sheet_name, index=False)
+        writer.save()
+
 class COperations:
     def list_correction_to_ethalon_naming_list(self,incoming_list,ethalon_naming_list,percent):
         corrected_list, problematic_items = [], {}
@@ -44,51 +53,58 @@ class COperations:
             print(f"COGI: {problematic_items}")
         return corrected_list,problematic_items
 
+    def complex_mapping_to_ethalon(self,incoming_list_1,ethalon_naming_list_1,resulting_file,unnecessary_symbols_list):
+        mapping_item_dictionary_incoming, mapping_item_dictionary_ethalon = {}, {}
+        incoming_list_2, ethalon_naming_list_2 = [], []
+        df = pd.DataFrame()
+        for item in incoming_list_1:
+            changed_string, mapping_item_dictionary = f.intermediate_changed_list(item, unnecessary_symbols_list)
+            mapping_item_dictionary_incoming.update(mapping_item_dictionary)
+            incoming_list_2.append(changed_string)
+        for item_ in ethalon_naming_list_1:
+            changed_string_, mapping_item_dictionary_ = f.intermediate_changed_list(item_, unnecessary_symbols_list)
+            mapping_item_dictionary_ethalon.update(mapping_item_dictionary_)
+            ethalon_naming_list_2.append(changed_string_)
+
+        corrected_list, problematic_items = o.list_correction_to_ethalon_naming_list(incoming_list_2,
+                                                                                     ethalon_naming_list_2,
+                                                                                     percent)
+        corrected_list = [mapping_item_dictionary_ethalon.get(x) for x in corrected_list]
+        problematic_items = [mapping_item_dictionary_incoming.get(x) for x in problematic_items]
+        if problematic_items != []:
+            print(problematic_items)
+        df['incoming_list_1'] = incoming_list_1
+        df['result'] = corrected_list
+
+        df_error = pd.DataFrame()
+        df_error['problematic_items'] = problematic_items
+
+        df.to_excel(resulting_file, sheet_name='results', engine='openpyxl', index=False)
+        f.soft_add_sheet_to_existing_xlsx(resulting_file, df_error, 'problematic_items')
+        os.startfile(resulting_file)
+        print(f"Corrected list with applied actual percent threshold {percent}%: \n{corrected_list}")
+
 
 f = CFunctions()
 o = COperations()
+
+
+
+
+
 if __name__ == '__main__':
 
-    incoming_list = ['prague_e,','kiev','kopenhagen','stock_gohlm','paris ','berlin','Berdichev']
-    ethalon_naming_list = ['Berlin','Kyiv','Prague','Kopenhagen','Paris','Stockgohlm','Berdychiv']
-    percent = 71
+    #incoming_list = ['prague_e,','kiev','kopenhagen','stock_gohlm','paris ','berlin','Berdichev']
+    #ethalon_naming_list = ['Berlin','Kyiv','Prague','Kopenhagen','Paris','Stockgohlm','Berdychiv']
+
+    percent = 75
     unnecessary_symbols_list = ["№","_","%","-","/","|",",",".",".",",","!"," "]
-
-    '''corrected_list,problematic_items = o.list_correction_to_ethalon_naming_list(incoming_list,ethalon_naming_list,percent)
-    print(f"Corrected list with applied actual percent threshold {percent}%: \n{corrected_list}")'''
-
+    resulting_file = 'result.xlsx'
     df = pd.read_excel('test.xlsx',engine='openpyxl')
-    incoming_list_1 = df['item_sales_report'].values
-    ethalon_naming_list_1 = df['item_kpi_report'].values
-    mapping_item_dictionary_incoming,mapping_item_dictionary_ethalon = {},{}
-    incoming_list_2, ethalon_naming_list_2 = [], []
+    incoming_list = df['item_sales_report'].values
+    ethalon_naming_list = df['item_kpi_report'].values
 
-    for item in incoming_list_1:
-        changed_string,mapping_item_dictionary = f.intermediate_changed_list(item,unnecessary_symbols_list)
-        mapping_item_dictionary_incoming.update(mapping_item_dictionary)
-        incoming_list_2.append(changed_string)
-        #print(f"{mapping_item_dictionary_incoming.get(changed_string)} -  {changed_string}")
-
-    for item_ in ethalon_naming_list_1:
-        changed_string_,mapping_item_dictionary_ = f.intermediate_changed_list(item_,unnecessary_symbols_list)
-        mapping_item_dictionary_ethalon.update(mapping_item_dictionary_)
-        ethalon_naming_list_2.append(changed_string_)
-        #print(f"{mapping_item_dictionary_ethalon.get(changed_string_)} -  {changed_string_}")
-
-    corrected_list, problematic_items = o.list_correction_to_ethalon_naming_list(incoming_list_2, ethalon_naming_list_2,
-                                                                                 percent)
-
-    corrected_list = [mapping_item_dictionary_ethalon.get(x) for x in corrected_list]
-    problematic_items = [mapping_item_dictionary_incoming.get(x) for x in problematic_items]
-    print(corrected_list)
-    print(problematic_items)
-
-
-
-    df['result'] = corrected_list
-    df.to_excel('result.xlsx',engine='openpyxl',index=False)
-    os.startfile('result.xlsx')
-    print(f"Corrected list with applied actual percent threshold {percent}%: \n{corrected_list}")
+    o.complex_mapping_to_ethalon(incoming_list,ethalon_naming_list,resulting_file,unnecessary_symbols_list)
 
 
 
