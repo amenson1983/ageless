@@ -97,7 +97,7 @@ if __name__ == '__main__':
     #incoming_list = ['prague_e,','kiev','kopenhagen','stock_gohlm','paris ','berlin','Berdichev']
     #ethalon_naming_list = ['Berlin','Kyiv','Prague','Kopenhagen','Paris','Stockgohlm','Berdychiv']
 
-    percent = 75
+    percent = 71
     unnecessary_symbols_list = ["№","_","%","-","/","|",",",".",".",",","!"," "]
     resulting_file = 'result.xlsx'
     df = pd.read_excel('test.xlsx',engine='openpyxl')
