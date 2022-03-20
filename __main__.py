@@ -48,16 +48,20 @@ class CFunctions:
         self.df = df.loc[df[column_to_compare] == value ]
         return self.df
 
-    def key_field_two_columns_insertion(self,df,columns_list,key_field_name):
+    def key_field_two_columns_insertion_to_dataframe(self,df,columns_list,key_field_name):
         df[key_field_name] = df[columns_list[0]].map(str) + df[columns_list[1]].map(str)
         return df
 
-    def key_field_three_columns_insertion(self,df,columns_list,key_field_name):
+    def key_field_three_columns_insertion_to_dataframe(self,df,columns_list,key_field_name):
         df[key_field_name] = df[columns_list[0]].map(str) + df[columns_list[1]].map(str) + df[columns_list[2]].map(str)
         return df
 
-    def key_field_four_columns_insertion(self, df, columns_list, key_field_name):
+    def key_field_four_columns_insertion_to_dataframe(self, df, columns_list, key_field_name):
         df[key_field_name] = df[columns_list[0]].map(str) + df[columns_list[1]].map(str) + df[columns_list[2]].map(str) + df[columns_list[3]].map(str)
+        return df
+
+    def map_dataframe_column_via_dictionary_and_get_new_df(self,df,target_column,new_column_name,dictionary):
+        df[new_column_name] = [dictionary.get(x) for x in df[target_column].values]
         return df
 
 class COperations:
@@ -109,28 +113,57 @@ class COperations:
         print(f"Corrected list with applied actual percent threshold {percent}%: \n{corrected_list}")
         return mapping
 
+    def dataframe_two_field_progressive_key(self,df,two_columns_list,unnecessary_symbols_list):
+
+        df = f.key_field_two_columns_insertion_to_dataframe(df, two_columns_list,
+                                                            'progressive_key')
+        changed_string_list = []
+        for key in df['progressive_key'].values:
+            changed_string, mapping_item_dictionary = f.intermediate_changed_list(key, unnecessary_symbols_list)
+            changed_string_list.append(changed_string)
+        df['progressive_key'] = changed_string_list
+        return df
+
+    def ethalon_field_creation(self,df,target_field,support_field,ethalon_field_name):
+        df[support_field] = [int(x) for x in df[support_field].values]
+        target_field_list = df[target_field].values
+        support_field = df[support_field].values
+        dictionary = dict(zip(support_field,target_field_list))
+        df_final = pd.DataFrame()
+        df_final['support_field'] = [int(x) for x in dictionary.keys()]
+        df_final['target_field'] = [str(x).capitalize() for x in dictionary.values()]
+        dictionary = dict(zip(df_final['support_field'].values, df_final['target_field'].values))
+        df[ethalon_field_name] = [dictionary.get(x) for x in df['Postal Code'].values]
+        return df,dictionary
 
 f = CFunctions()
 o = COperations()
-
 
 if __name__ == '__main__':
     percent = 72
     unnecessary_symbols_list = ["№","_","%","-","/","|",",",".",".",",","!"," "]
     resulting_file = 'result.xlsx'
 
-    df = pd.read_excel('test.xlsx',engine='openpyxl')
-    incoming_list = df['item_sales_report'].values
-    ethalon_naming_list = df['item_kpi_report'].values
+    tab_sap = 'SAP Data'
+    df_ethalon = pd.read_excel('Comparison test_20220210.xlsx',sheet_name=tab_sap,engine='openpyxl')
+    ethalon_target_columns = ['Country', 'City', 'Street','Postal Code']
+    #print(df_ethalon.columns)
 
-    #incoming_list = ['prague_e,','kiev','kopenhagen','stock_gohlm','paris ','berlin','Berdichev']
-    #ethalon_naming_list = ['Berlin','Kyiv','Prague','Kopenhagen','Paris','Stockgohlm','Berdychiv']
+    tab_legacy = 'Legacy Data'
+    df_legacy = pd.read_excel('Comparison test_20220210.xlsx', sheet_name=tab_legacy, engine='openpyxl')
+    legacy_target_columns = ['Country', 'City', 'Street','Postal Code']
+    #print(df_legacy.columns)
+
+    incoming_list = df_legacy[legacy_target_columns[1]].values
+    ethalon_naming_list = df_ethalon[legacy_target_columns[1]].values
 
     #mapping_dictionary = o.complex_mapping_to_ethalon(incoming_list,ethalon_naming_list,resulting_file,unnecessary_symbols_list)
-
-    df = f.key_field_two_columns_insertion(df,['item_sales_report', 'item_kpi_report'],'key')
-    for key in df['key'].values:
-        changed_string,mapping_item_dictionary = f.intermediate_changed_list(key,unnecessary_symbols_list)
-        print(changed_string)
+    #df = o.dataframe_two_field_progressive_key(df,['item_sales_report','item_kpi_report'],unnecessary_symbols_list)
+    ethalon_field_name = 'city_ethalon'
+    df_legacy_with_common_city,dictionary_postcode_common_city = o.ethalon_field_creation(df_legacy,legacy_target_columns[1],legacy_target_columns[3],ethalon_field_name) #City ethalon for SAP DATA
+    df_ethalon[ethalon_field_name] = [dictionary_postcode_common_city.get(x) for x in df_ethalon[legacy_target_columns[3]].values]
+    df_legacy_with_common_city.to_excel(resulting_file,sheet_name=tab_legacy,engine='openpyxl', index=False)
+    f.soft_add_sheet_to_existing_xlsx(resulting_file,df_ethalon, tab_sap)
+    os.startfile(resulting_file)
 
 
