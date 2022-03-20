@@ -136,61 +136,75 @@ class COperations:
         df[ethalon_field_name] = [dictionary.get(x) for x in df['Postal Code'].values]
         return df,dictionary
 
+    def name_one_name_two_mapping(self,df_legacy_with_common_city,df_ethalon):
+
+        return df_legacy_with_common_city,df_ethalon
 
 f = CFunctions()
 o = COperations()
 
+
+def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,unnecessary_symbols_list,resulting_file,
+                   tab_sap,tab_legacy):
+
+    ethalon_field_name = 'city_ethalon'
+    df_legacy_with_common_city, dictionary_postcode_common_city = o.ethalon_target_field_creation_with_support_field(
+        df_legacy, legacy_target_columns[1], legacy_target_columns[2], ethalon_field_name)  # City ethalon for SAP DATA
+    df_ethalon[ethalon_field_name] = [dictionary_postcode_common_city.get(x) for x in
+                                      df_ethalon[legacy_target_columns[2]].values]
+
+    ethalon_target_columns_ = ['Country', ethalon_field_name, 'Postal Code', 'Street']
+    legacy_target_columns_ = ['Country', ethalon_field_name, 'Postal Code', 'Street']
+    df_ethalon = f.key_field_four_columns_insertion_to_dataframe(df_ethalon, ethalon_target_columns_, 'key_full')
+    df_legacy_with_common_city = f.key_field_four_columns_insertion_to_dataframe(df_legacy_with_common_city,
+                                                                                 ethalon_target_columns_, 'key_full')
+
+    df_legacy_streets_list = df_legacy_with_common_city['key_full'].values
+    df_sap_streets_list = df_ethalon['key_full'].values
+
+    mapping_dictionary = o.complex_mapping_to_ethalon(df_sap_streets_list, df_legacy_streets_list, resulting_file,
+                                                      unnecessary_symbols_list, percent)
+
+    ethalon_field_name_full_key = 'key_ethalon'
+    df_ethalon[ethalon_field_name_full_key] = [mapping_dictionary.get(x) for x in df_ethalon['key_full'].values]
+    df_legacy_with_common_city[ethalon_field_name_full_key] = df_legacy_streets_list
+
+    ethalon_field_name = 'streets_ethalon'
+    dict_key_full_to_street = dict(zip(df_legacy_with_common_city[ethalon_field_name_full_key].values,
+                                       df_legacy_with_common_city[legacy_target_columns_[3]].values))
+
+    df_ethalon[ethalon_field_name] = [dict_key_full_to_street.get(x) for x in
+                                      df_ethalon[ethalon_field_name_full_key].values]
+
+    df_legacy_with_common_city[ethalon_field_name] = df_legacy_with_common_city[legacy_target_columns_[3]]
+
+    df_legacy_with_common_city = df_legacy_with_common_city.drop(columns=[ethalon_field_name_full_key, 'key_full'])
+    df_ethalon = df_ethalon.drop(columns=[ethalon_field_name_full_key, 'key_full'])
+
+    df_legacy_with_common_city,df_ethalon = o.name_one_name_two_mapping(df_legacy_with_common_city,df_ethalon)
+
+    df_legacy_with_common_city.to_excel(resulting_file, sheet_name=tab_legacy, engine='openpyxl', index=False)
+    f.soft_add_sheet_to_existing_xlsx(resulting_file, df_ethalon, tab_sap)
+    os.startfile(resulting_file)
+
+
 if __name__ == '__main__':
-    percent = 72
+    percent = 82
     unnecessary_symbols_list = ["№","_","%","/","|",",",".",".",",","!"," "]
     resulting_file = 'result.xlsx'
 
     tab_sap = 'SAP Data'
     df_ethalon = pd.read_excel('Comparison test_20220210.xlsx',sheet_name=tab_sap,engine='openpyxl')
     ethalon_target_columns = ['Country', 'City', 'Postal Code']
-    #print(df_ethalon.columns)
+
+    print(df_ethalon.columns)
 
     tab_legacy = 'Legacy Data'
     df_legacy = pd.read_excel('Comparison test_20220210.xlsx', sheet_name=tab_legacy, engine='openpyxl')
     legacy_target_columns = ['Country', 'City', 'Postal Code']
-    #print(df_legacy.columns)
+    print(df_legacy.columns)
 
-    incoming_list = df_legacy[legacy_target_columns[1]].values
-    ethalon_naming_list = df_ethalon[legacy_target_columns[1]].values
-
-    #mapping_dictionary = o.complex_mapping_to_ethalon(incoming_list,ethalon_naming_list,resulting_file,unnecessary_symbols_list)
-
-
-    ethalon_field_name = 'city_ethalon'
-    df_legacy_with_common_city,dictionary_postcode_common_city = o.ethalon_target_field_creation_with_support_field(df_legacy,legacy_target_columns[1],legacy_target_columns[2],ethalon_field_name) #City ethalon for SAP DATA
-    df_ethalon[ethalon_field_name] = [dictionary_postcode_common_city.get(x) for x in df_ethalon[legacy_target_columns[2]].values]
-    print(df_legacy_with_common_city.columns)
-
-    ethalon_target_columns_ = ['Country', ethalon_field_name, 'Postal Code','Street']
-    legacy_target_columns_ = ['Country', ethalon_field_name, 'Postal Code','Street']
-
-    ethalon_field_name_street = 'street_ethalon'
-    df_legacy_streets_list = df_legacy_with_common_city[legacy_target_columns_[3]].values
-    df_sap_streets_list = df_ethalon[ethalon_target_columns_[3]].values
-
-    mapping_dictionary = o.complex_mapping_to_ethalon(df_sap_streets_list, df_legacy_streets_list, resulting_file,
-                                                      unnecessary_symbols_list,85)
-
-    df_ethalon[ethalon_field_name_street] = [mapping_dictionary.get(x) for x in df_ethalon[ethalon_target_columns_[3]].values]
-    df_legacy_with_common_city[ethalon_field_name_street] = df_legacy_streets_list
-    ethalon_field_name_key = 'key_country_city_ethalon_postal_code_street'
-
-    ethalon_target_columns_ = ['Country', ethalon_field_name, 'Postal Code',ethalon_field_name_street]
-    legacy_target_columns_ = ['Country', ethalon_field_name, 'Postal Code',ethalon_field_name_street]
-
-    df_legacy_with_common_city = f.key_field_four_columns_insertion_to_dataframe(df_legacy_with_common_city,legacy_target_columns_,ethalon_field_name_key)
-    df_ethalon = f.key_field_four_columns_insertion_to_dataframe(df_ethalon, ethalon_target_columns_,
-                                                     ethalon_field_name_key)
-
-    df_legacy_with_common_city.to_excel(resulting_file,sheet_name=tab_legacy,engine='openpyxl', index=False)
-    f.soft_add_sheet_to_existing_xlsx(resulting_file,df_ethalon, tab_sap)
-    
-    
-    os.startfile(resulting_file)
+    transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,unnecessary_symbols_list,resulting_file,
+                   tab_sap,tab_legacy)
 
 
