@@ -107,10 +107,10 @@ class COperations:
         df_error = pd.DataFrame()
         df_error['problematic_items'] = problematic_items
 
-        f.soft_add_sheet_to_existing_xlsx(resulting_file, df, 'results_mapping')
-        f.soft_add_sheet_to_existing_xlsx(resulting_file, df_error, 'problematic_items')
-        os.startfile(resulting_file)
-        print(f"Corrected list with applied actual percent threshold {percent}%: \n{corrected_list}")
+        #f.soft_add_sheet_to_existing_xlsx(resulting_file, df, 'results_mapping')
+        #f.soft_add_sheet_to_existing_xlsx(resulting_file, df_error, 'problematic_items')
+        #os.startfile(resulting_file)
+        print(f"Corrected list with applied actual percent threshold {percent}%")
         return mapping
 
     def dataframe_two_field_progressive_key(self,df,two_columns_list,unnecessary_symbols_list):
@@ -136,7 +136,30 @@ class COperations:
         df[ethalon_field_name] = [dictionary.get(x) for x in df['Postal Code'].values]
         return df,dictionary
 
-    def name_one_name_two_mapping(self,df_legacy_with_common_city,df_ethalon):
+    def name_one_name_two_mapping(self,df_legacy_with_common_city,df_ethalon,names_field_list,resulting_file,
+                                  unnecessary_symbols_list,percent_names):
+
+        df_legacy_with_common_city = f.key_field_two_columns_insertion_to_dataframe(df_legacy_with_common_city,
+                                                                                    names_field_list,'names_key')
+
+
+        df_ethalon = f.key_field_two_columns_insertion_to_dataframe(df_ethalon, names_field_list,'names_key')
+
+        names_field_list_ = ['key_ethalon', 'names_key']
+
+        df_legacy_with_common_city = f.key_field_two_columns_insertion_to_dataframe(df_legacy_with_common_city,
+                                                                                    names_field_list_,'total_names_key')
+
+        df_ethalon = f.key_field_two_columns_insertion_to_dataframe(df_ethalon, names_field_list_,'total_names_key')
+
+        incoming_list = df_ethalon['total_names_key'].values
+        ethalon_list = df_legacy_with_common_city['total_names_key'].values
+
+
+        mapping_dict = o.complex_mapping_to_ethalon(incoming_list,ethalon_list,resulting_file,unnecessary_symbols_list,percent_names)
+        df_ethalon['names_ethalon'] = [mapping_dict.get(x) for x in df_ethalon['total_names_key'].values]
+        df_ethalon = df_ethalon.drop(columns=['names_key','key_ethalon','total_names_key'])
+        df_legacy_with_common_city = df_legacy_with_common_city.drop(columns=['names_key', 'key_ethalon'])
 
         return df_legacy_with_common_city,df_ethalon
 
@@ -144,7 +167,7 @@ f = CFunctions()
 o = COperations()
 
 
-def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,unnecessary_symbols_list,resulting_file,
+def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_names,unnecessary_symbols_list,resulting_file,
                    tab_sap,tab_legacy):
 
     ethalon_field_name = 'city_ethalon'
@@ -178,10 +201,11 @@ def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,unnecessar
 
     df_legacy_with_common_city[ethalon_field_name] = df_legacy_with_common_city[legacy_target_columns_[3]]
 
-    df_legacy_with_common_city = df_legacy_with_common_city.drop(columns=[ethalon_field_name_full_key, 'key_full'])
-    df_ethalon = df_ethalon.drop(columns=[ethalon_field_name_full_key, 'key_full'])
-
-    df_legacy_with_common_city,df_ethalon = o.name_one_name_two_mapping(df_legacy_with_common_city,df_ethalon)
+    df_legacy_with_common_city = df_legacy_with_common_city.drop(columns=['key_full'])
+    df_ethalon = df_ethalon.drop(columns=['key_full'])
+    names_field_list = ['Name 1', 'Name 2']
+    df_legacy_with_common_city,df_ethalon = o.name_one_name_two_mapping(df_legacy_with_common_city,df_ethalon,
+                                                                        names_field_list,resulting_file,unnecessary_symbols_list,percent_names)
 
     df_legacy_with_common_city.to_excel(resulting_file, sheet_name=tab_legacy, engine='openpyxl', index=False)
     f.soft_add_sheet_to_existing_xlsx(resulting_file, df_ethalon, tab_sap)
@@ -190,6 +214,7 @@ def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,unnecessar
 
 if __name__ == '__main__':
     percent = 82
+    percent_names = 65
     unnecessary_symbols_list = ["№","_","%","/","|",",",".",".",",","!"," "]
     resulting_file = 'result.xlsx'
 
@@ -204,7 +229,7 @@ if __name__ == '__main__':
     legacy_target_columns = ['Country', 'City', 'Postal Code']
     print(df_legacy.columns)
 
-    transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,unnecessary_symbols_list,resulting_file,
+    transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_names,unnecessary_symbols_list,resulting_file,
                    tab_sap,tab_legacy)
 
 
