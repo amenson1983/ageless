@@ -81,7 +81,7 @@ class COperations:
             print(f"COGI: {problematic_items}")
         return corrected_list,problematic_items
 
-    def complex_mapping_to_ethalon(self,incoming_list_1,ethalon_naming_list_1,resulting_file,unnecessary_symbols_list):
+    def complex_mapping_to_ethalon(self,incoming_list_1,ethalon_naming_list_1,resulting_file,unnecessary_symbols_list,percent):
         mapping_item_dictionary_incoming, mapping_item_dictionary_ethalon = {}, {}
         incoming_list_2, ethalon_naming_list_2 = [], []
         df = pd.DataFrame()
@@ -107,7 +107,7 @@ class COperations:
         df_error = pd.DataFrame()
         df_error['problematic_items'] = problematic_items
 
-        df.to_excel(resulting_file, sheet_name='results', engine='openpyxl', index=False)
+        f.soft_add_sheet_to_existing_xlsx(resulting_file, df, 'results_mapping')
         f.soft_add_sheet_to_existing_xlsx(resulting_file, df_error, 'problematic_items')
         os.startfile(resulting_file)
         print(f"Corrected list with applied actual percent threshold {percent}%: \n{corrected_list}")
@@ -124,7 +124,7 @@ class COperations:
         df['progressive_key'] = changed_string_list
         return df
 
-    def ethalon_field_creation(self,df,target_field,support_field,ethalon_field_name):
+    def ethalon_target_field_creation_with_support_field(self,df,target_field,support_field,ethalon_field_name):
         df[support_field] = [int(x) for x in df[support_field].values]
         target_field_list = df[target_field].values
         support_field = df[support_field].values
@@ -136,34 +136,61 @@ class COperations:
         df[ethalon_field_name] = [dictionary.get(x) for x in df['Postal Code'].values]
         return df,dictionary
 
+
 f = CFunctions()
 o = COperations()
 
 if __name__ == '__main__':
     percent = 72
-    unnecessary_symbols_list = ["№","_","%","-","/","|",",",".",".",",","!"," "]
+    unnecessary_symbols_list = ["№","_","%","/","|",",",".",".",",","!"," "]
     resulting_file = 'result.xlsx'
 
     tab_sap = 'SAP Data'
     df_ethalon = pd.read_excel('Comparison test_20220210.xlsx',sheet_name=tab_sap,engine='openpyxl')
-    ethalon_target_columns = ['Country', 'City', 'Street','Postal Code']
+    ethalon_target_columns = ['Country', 'City', 'Postal Code']
     #print(df_ethalon.columns)
 
     tab_legacy = 'Legacy Data'
     df_legacy = pd.read_excel('Comparison test_20220210.xlsx', sheet_name=tab_legacy, engine='openpyxl')
-    legacy_target_columns = ['Country', 'City', 'Street','Postal Code']
+    legacy_target_columns = ['Country', 'City', 'Postal Code']
     #print(df_legacy.columns)
 
     incoming_list = df_legacy[legacy_target_columns[1]].values
     ethalon_naming_list = df_ethalon[legacy_target_columns[1]].values
 
     #mapping_dictionary = o.complex_mapping_to_ethalon(incoming_list,ethalon_naming_list,resulting_file,unnecessary_symbols_list)
-    #df = o.dataframe_two_field_progressive_key(df,['item_sales_report','item_kpi_report'],unnecessary_symbols_list)
+
+
     ethalon_field_name = 'city_ethalon'
-    df_legacy_with_common_city,dictionary_postcode_common_city = o.ethalon_field_creation(df_legacy,legacy_target_columns[1],legacy_target_columns[3],ethalon_field_name) #City ethalon for SAP DATA
-    df_ethalon[ethalon_field_name] = [dictionary_postcode_common_city.get(x) for x in df_ethalon[legacy_target_columns[3]].values]
+    df_legacy_with_common_city,dictionary_postcode_common_city = o.ethalon_target_field_creation_with_support_field(df_legacy,legacy_target_columns[1],legacy_target_columns[2],ethalon_field_name) #City ethalon for SAP DATA
+    df_ethalon[ethalon_field_name] = [dictionary_postcode_common_city.get(x) for x in df_ethalon[legacy_target_columns[2]].values]
+    print(df_legacy_with_common_city.columns)
+
+    ethalon_target_columns_ = ['Country', ethalon_field_name, 'Postal Code','Street']
+    legacy_target_columns_ = ['Country', ethalon_field_name, 'Postal Code','Street']
+
+    ethalon_field_name_street = 'street_ethalon'
+    df_legacy_streets_list = df_legacy_with_common_city[legacy_target_columns_[3]].values
+    df_sap_streets_list = df_ethalon[ethalon_target_columns_[3]].values
+
+    mapping_dictionary = o.complex_mapping_to_ethalon(df_sap_streets_list, df_legacy_streets_list, resulting_file,
+                                                      unnecessary_symbols_list,85)
+
+    df_ethalon[ethalon_field_name_street] = [mapping_dictionary.get(x) for x in df_ethalon[ethalon_target_columns_[3]].values]
+    df_legacy_with_common_city[ethalon_field_name_street] = df_legacy_streets_list
+    ethalon_field_name_key = 'key_country_city_ethalon_postal_code_street'
+
+    ethalon_target_columns_ = ['Country', ethalon_field_name, 'Postal Code',ethalon_field_name_street]
+    legacy_target_columns_ = ['Country', ethalon_field_name, 'Postal Code',ethalon_field_name_street]
+
+    df_legacy_with_common_city = f.key_field_four_columns_insertion_to_dataframe(df_legacy_with_common_city,legacy_target_columns_,ethalon_field_name_key)
+    df_ethalon = f.key_field_four_columns_insertion_to_dataframe(df_ethalon, ethalon_target_columns_,
+                                                     ethalon_field_name_key)
+
     df_legacy_with_common_city.to_excel(resulting_file,sheet_name=tab_legacy,engine='openpyxl', index=False)
     f.soft_add_sheet_to_existing_xlsx(resulting_file,df_ethalon, tab_sap)
+    
+    
     os.startfile(resulting_file)
 
 
