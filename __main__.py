@@ -6,6 +6,51 @@ import jellyfish as jf
 import string as st
 from openpyxl import load_workbook
 
+class CInformations:
+    def information_input_for_transfer_check(self):
+        percent = 82
+        percent_names = 70
+        unnecessary_symbols_list = ["№", "_", "%", "/", "|", ",", ".", ".", ",", "!", " "]
+        resulting_file = 'result.xlsx'
+
+        tab_sap = 'SAP Data'
+        df_ethalon = pd.read_excel('Comparison test_20220210.xlsx', sheet_name=tab_sap, engine='openpyxl')
+        ethalon_target_columns = ['Country', 'City', 'Postal Code']
+
+        print(df_ethalon.columns)
+
+        tab_legacy = 'Legacy Data'
+        df_legacy = pd.read_excel('Comparison test_20220210.xlsx', sheet_name=tab_legacy, engine='openpyxl')
+        legacy_target_columns = ['Country', 'City', 'Postal Code']
+        print(df_legacy.columns)
+
+        return df_legacy, df_ethalon, legacy_target_columns, percent, percent_names, unnecessary_symbols_list, resulting_file, tab_sap, tab_legacy
+
+    def information_input_for_TIBAN_KBNK_check(self):
+        percent = 82
+        percent_names = 70
+        unnecessary_symbols_list = ["№", "_", "%", "/", "|", ",", ".", ".", ",", "!", " "]
+        resulting_file = 'result_TIBAN_KBNK.xlsx'
+
+        tab_sap = 'Bank Data UPLOAD'
+        df_sap = pd.read_excel('Legacy Data CMD V2.xlsx', sheet_name=tab_sap, engine='openpyxl')
+
+        print(df_sap.columns)
+
+        tab_kbnk = 'KBNK'
+        df_kbnk = pd.read_excel('Legacy Data CMD V2.xlsx', sheet_name=tab_kbnk, engine='openpyxl')
+        kbnk_key_columns = ['BANK Key', 'BANK Account']
+        kbnk_columns_to_migrate = ['Bank partner Type', 'CollectionAuthorization (KNBK)']
+
+        print(df_kbnk.columns)
+
+        tab_tiban = 'TIBAN'
+        df_tiban = pd.read_excel('Legacy Data CMD V2.xlsx', sheet_name=tab_tiban, engine='openpyxl')
+        tiban_key_columns = ['BANK Key', 'BANK Account']
+        print(df_tiban.columns)
+
+        return df_sap, df_kbnk, df_tiban, percent, percent_names, unnecessary_symbols_list, \
+               resulting_file, tab_sap, tab_kbnk, tab_tiban,kbnk_key_columns,kbnk_columns_to_migrate,tiban_key_columns
 class CFunctions:
 
     def item_match_in_list_by_percent(self,item,list_values,percent):
@@ -64,6 +109,12 @@ class CFunctions:
         self.df = df
         self.df[new_column_name] = self.df[f'{target_column}'].apply(lambda x: pd.Series(x).map(dictionary))
         return self.df
+
+    def map_data_to_first_df_from_second_by_key_up_to_five_columns(self,df1,df2,key_field,columns_to_map):
+        for i in range(0,len(columns_to_map)):
+            data_dict = dict(zip(df2[key_field].values,df2[columns_to_map[i]].values))
+            df1 = self.map_dataframe_column_via_dictionary_and_get_new_df(df1,key_field,f"{columns_to_map[i]}",data_dict)
+        return df1,df2
 
 class COperations:
 
@@ -164,27 +215,10 @@ class COperations:
 
         return df_legacy_with_common_city,df_ethalon
 
-f = CFunctions()
-o = COperations()
+    def kbnk_tiban_vlookup(self,df_tiban,df_kbnk,key_field,columns_to_migrate):
+        df_tiban,df_kbnk = f.map_data_to_first_df_from_second_by_key_up_to_five_columns(df_tiban,df_kbnk,key_field,columns_to_migrate)
 
-def information_input_for_transfer_check():
-    percent = 82
-    percent_names = 70
-    unnecessary_symbols_list = ["№","_","%","/","|",",",".",".",",","!"," "]
-    resulting_file = 'result.xlsx'
-
-    tab_sap = 'SAP Data'
-    df_ethalon = pd.read_excel('Comparison test_20220210.xlsx',sheet_name=tab_sap,engine='openpyxl')
-    ethalon_target_columns = ['Country', 'City', 'Postal Code']
-
-    print(df_ethalon.columns)
-
-    tab_legacy = 'Legacy Data'
-    df_legacy = pd.read_excel('Comparison test_20220210.xlsx', sheet_name=tab_legacy, engine='openpyxl')
-    legacy_target_columns = ['Country', 'City', 'Postal Code']
-    print(df_legacy.columns)
-
-    return df_legacy, df_ethalon, legacy_target_columns, percent, percent_names, unnecessary_symbols_list, resulting_file,tab_sap, tab_legacy
+        return df_kbnk, df_tiban
 
 def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_names,unnecessary_symbols_list,resulting_file,
                    tab_sap,tab_legacy):
@@ -230,12 +264,28 @@ def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_na
     f.soft_add_sheet_to_existing_xlsx(resulting_file, df_ethalon, tab_sap)
     os.startfile(resulting_file)
 
+f = CFunctions()
+o = COperations()
+i = CInformations()
 
 if __name__ == '__main__':
-    df_legacy, df_ethalon, legacy_target_columns, percent, percent_names,\
-    unnecessary_symbols_list, resulting_file,tab_sap, tab_legacy = information_input_for_transfer_check()
-
+    '''df_legacy, df_ethalon, legacy_target_columns, percent, percent_names,
+    unnecessary_symbols_list, resulting_file,tab_sap, tab_legacy = i.information_input_for_transfer_check()
     transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_names,unnecessary_symbols_list,resulting_file,
-                   tab_sap,tab_legacy)
+                   tab_sap,tab_legacy)''' #Legacy Data - SAP Data migration entries check
+
+    df_sap, df_kbnk, df_tiban, percent, percent_names, \
+    unnecessary_symbols_list, resulting_file,tab_sap, \
+    tab_kbnk, tab_tiban, kbnk_key_columns,kbnk_columns_to_migrate,tiban_key_columns = \
+        i.information_input_for_TIBAN_KBNK_check()
+    key_col_list = ['BANK Key', 'BANK Account']
+    df_kbnk = o.dataframe_two_field_progressive_key(df_kbnk,key_col_list,unnecessary_symbols_list)
+    df_tiban = o.dataframe_two_field_progressive_key(df_tiban, key_col_list, unnecessary_symbols_list)
+
+    df_kbnk,df_tiban = o.kbnk_tiban_vlookup(df_tiban,df_kbnk,'progressive_key',kbnk_columns_to_migrate)
+    print(df_tiban.columns)
+    print(df_tiban.head(5))
+
+
 
 
