@@ -7,6 +7,7 @@ import string as st
 from openpyxl import load_workbook
 
 class CInformations:
+
     def information_input_for_transfer_check(self):
         percent = 82
         percent_names = 70
@@ -226,8 +227,7 @@ class COperations:
 
     def tiban_to_bank_data_upload_vlookup(self,df_sap,df_tiban,key_field,columns_to_migrate,
                                           resulting_file,tab_sap):
-        df_sap,df_tiban= f.map_data_to_first_df_from_second_by_key_up_to_five_columns(df_sap, df_tiban, key_field,
-                                                                                         columns_to_migrate)
+        df_sap,df_tiban= f.map_data_to_first_df_from_second_by_key_up_to_five_columns(df_sap, df_tiban, key_field,columns_to_migrate)
         sap_iban_list = df_sap['IBAN'].values
         tiban_iban_list = df_tiban['IBAN'].values
         sap_iban_count_tiban_iban_match_dict = {}
@@ -319,18 +319,22 @@ def LegacySapWorkout():
 
 
 def TibanKnbkUploadCheck():
+    i = CInformations()
     df_sap, df_kbnk, df_tiban, percent, percent_names, \
     unnecessary_symbols_list, resulting_file, tab_sap, \
-    tab_kbnk, tab_tiban, kbnk_key_columns, kbnk_columns_to_migrate, tiban_key_columns = \
-        i.information_input_for_TIBAN_KBNK_check()
+    tab_kbnk, tab_tiban, kbnk_key_columns, kbnk_columns_to_migrate, tiban_key_columns = i.information_input_for_TIBAN_KBNK_check()
     key_col_list = ['BANK Key', 'BANK Account']
     df_kbnk = o.dataframe_two_field_progressive_key(df_kbnk, key_col_list, unnecessary_symbols_list)
     df_tiban = o.dataframe_two_field_progressive_key(df_tiban, key_col_list, unnecessary_symbols_list)
     df_kbnk, df_tiban, resulting_file = o.kbnk_to_tiban_vlookup(df_tiban, df_kbnk, 'progressive_key',
                                                                 kbnk_columns_to_migrate, resulting_file)
     key_field = "IBAN"
-    o.tiban_to_bank_data_upload_vlookup(df_sap, df_tiban, key_field, kbnk_columns_to_migrate, resulting_file,
-                                        tab_sap)
+    clean_list = []
+    for string in df_sap[key_field].values:
+        changed_string,mapping_item_dictionary = f.intermediate_changed_list(string,unnecessary_symbols_list)
+        clean_list.append(changed_string.upper())
+    df_sap[key_field] = clean_list
+    o.tiban_to_bank_data_upload_vlookup(df_sap, df_tiban, key_field, kbnk_columns_to_migrate, resulting_file,tab_sap)
 
 
 f = CFunctions()
@@ -339,9 +343,9 @@ i = CInformations()
 
 if __name__ == '__main__':
 
-    LegacySapWorkout() #Legacy Data - SAP Data migration entries check
+    #LegacySapWorkout() #Legacy Data - SAP Data migration entries check
 
-    TibanKnbkUploadCheck() # TIBAN - KNBK - UPLOAD check
+    #TibanKnbkUploadCheck() # TIBAN - KNBK - UPLOAD check
 
 
 
