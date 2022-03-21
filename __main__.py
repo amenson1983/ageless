@@ -11,8 +11,8 @@ class CInformations:
         percent = 82
         percent_names = 70
         unnecessary_symbols_list = ["№", "_", "%", "/", "|", ",", ".", ".", ",", "!", " "]
-        resulting_file = 'result.xlsx'
-
+        resulting_file = 'result_LEGACY_SAP.xlsx'
+        analisys_tab = 'Analisys tab'
         tab_sap = 'SAP Data'
         df_ethalon = pd.read_excel('Comparison test_20220210.xlsx', sheet_name=tab_sap, engine='openpyxl')
         ethalon_target_columns = ['Country', 'City', 'Postal Code']
@@ -24,7 +24,7 @@ class CInformations:
         legacy_target_columns = ['Country', 'City', 'Postal Code']
         print(df_legacy.columns)
 
-        return df_legacy, df_ethalon, legacy_target_columns, percent, percent_names, unnecessary_symbols_list, resulting_file, tab_sap, tab_legacy
+        return df_legacy, df_ethalon, legacy_target_columns, percent, percent_names, unnecessary_symbols_list, resulting_file, tab_sap, tab_legacy,analisys_tab
 
     def information_input_for_TIBAN_KBNK_check(self):
         percent = 82
@@ -51,6 +51,7 @@ class CInformations:
 
         return df_sap, df_kbnk, df_tiban, percent, percent_names, unnecessary_symbols_list, \
                resulting_file, tab_sap, tab_kbnk, tab_tiban,kbnk_key_columns,kbnk_columns_to_migrate,tiban_key_columns
+
 class CFunctions:
 
     def item_match_in_list_by_percent(self,item,list_values,percent):
@@ -282,28 +283,65 @@ def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_na
 
     df_legacy_with_common_city.to_excel(resulting_file, sheet_name=tab_legacy, engine='openpyxl', index=False)
     f.soft_add_sheet_to_existing_xlsx(resulting_file, df_ethalon, tab_sap)
+    return df_legacy_with_common_city,df_ethalon, resulting_file
+
+
+def LegacySapWorkout():
+    df_legacy, df_ethalon, legacy_target_columns, percent, percent_names, \
+    unnecessary_symbols_list, resulting_file, tab_sap, tab_legacy, analisys_tab = i.information_input_for_transfer_check()
+    df_legacy_with_common_city, df_ethalon, resulting_file = transfer_check(df_legacy, df_ethalon,
+                                                                            legacy_target_columns, percent,
+                                                                            percent_names, unnecessary_symbols_list,
+                                                                            resulting_file,
+                                                                            tab_sap, tab_legacy)
+    keyfield = 'key_for_analisys'
+    df_legacy_with_common_city = f.key_field_three_columns_insertion_to_dataframe(df_legacy_with_common_city,
+                                                                                  ['Postal Code', 'city_ethalon',
+                                                                                   'streets_ethalon'],
+                                                                                  keyfield)
+    df_ethalon = f.key_field_three_columns_insertion_to_dataframe(df_ethalon,
+                                                                  ['Postal Code', 'city_ethalon', 'streets_ethalon'],
+                                                                  keyfield)
+    df_ethalon = df_ethalon.rename(columns={"Name 1": "Name 1 SAP", "Name 2": "Name 2 SAP"})
+    df_ethalon, df_legacy_with_common_city = f.map_data_to_first_df_from_second_by_key_up_to_five_columns(df_ethalon,
+                                                                                                          df_legacy_with_common_city,
+                                                                                                          keyfield,
+                                                                                                          ['Name 1',
+                                                                                                           'Name 2'])
+    df_ethalon = df_ethalon.drop(columns=['key_for_analisys'])
+    df_ethalon = df_ethalon.rename(columns={"Name 1": "Name 1 Legacy", "Name 2": "Name 2 Legacy"})
+    f.soft_add_sheet_to_existing_xlsx(resulting_file, df_ethalon, tab_sap)
+    df_analisys = df_ethalon
+    df_analisys['names_ethalon'] = df_analisys['names_ethalon'].fillna('Have doubts')
+    df_analisys = f.loc_df_by_column_equals_to(df_analisys, 'names_ethalon', 'Have doubts')
+    f.soft_add_sheet_to_existing_xlsx(resulting_file, df_analisys, analisys_tab)
     os.startfile(resulting_file)
+
+
+def TibanKnbkUploadCheck():
+    df_sap, df_kbnk, df_tiban, percent, percent_names, \
+    unnecessary_symbols_list, resulting_file, tab_sap, \
+    tab_kbnk, tab_tiban, kbnk_key_columns, kbnk_columns_to_migrate, tiban_key_columns = \
+        i.information_input_for_TIBAN_KBNK_check()
+    key_col_list = ['BANK Key', 'BANK Account']
+    df_kbnk = o.dataframe_two_field_progressive_key(df_kbnk, key_col_list, unnecessary_symbols_list)
+    df_tiban = o.dataframe_two_field_progressive_key(df_tiban, key_col_list, unnecessary_symbols_list)
+    df_kbnk, df_tiban, resulting_file = o.kbnk_to_tiban_vlookup(df_tiban, df_kbnk, 'progressive_key',
+                                                                kbnk_columns_to_migrate, resulting_file)
+    key_field = "IBAN"
+    o.tiban_to_bank_data_upload_vlookup(df_sap, df_tiban, key_field, kbnk_columns_to_migrate, resulting_file,
+                                        tab_sap)
+
 
 f = CFunctions()
 o = COperations()
 i = CInformations()
 
 if __name__ == '__main__':
-    '''df_legacy, df_ethalon, legacy_target_columns, percent, percent_names,
-    unnecessary_symbols_list, resulting_file,tab_sap, tab_legacy = i.information_input_for_transfer_check()
-    transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_names,unnecessary_symbols_list,resulting_file,
-                   tab_sap,tab_legacy)''' #Legacy Data - SAP Data migration entries check
 
-    '''df_sap, df_kbnk, df_tiban, percent, percent_names, \
-    unnecessary_symbols_list, resulting_file,tab_sap, \
-    tab_kbnk, tab_tiban, kbnk_key_columns,kbnk_columns_to_migrate,tiban_key_columns = \
-        i.information_input_for_TIBAN_KBNK_check()
-    key_col_list = ['BANK Key', 'BANK Account']
-    df_kbnk = o.dataframe_two_field_progressive_key(df_kbnk,key_col_list,unnecessary_symbols_list)
-    df_tiban = o.dataframe_two_field_progressive_key(df_tiban, key_col_list, unnecessary_symbols_list)
-    df_kbnk,df_tiban,resulting_file = o.kbnk_to_tiban_vlookup(df_tiban,df_kbnk,'progressive_key',kbnk_columns_to_migrate,resulting_file)
-    key_field = "IBAN"
-    o.tiban_to_bank_data_upload_vlookup(df_sap,df_tiban,key_field,kbnk_columns_to_migrate,resulting_file,tab_sap)''' #TIBAN - KNBK - UPLOAD check
+    LegacySapWorkout() #Legacy Data - SAP Data migration entries check
+
+    TibanKnbkUploadCheck() # TIBAN - KNBK - UPLOAD check
 
 
 
