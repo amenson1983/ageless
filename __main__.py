@@ -215,10 +215,30 @@ class COperations:
 
         return df_legacy_with_common_city,df_ethalon
 
-    def kbnk_tiban_vlookup(self,df_tiban,df_kbnk,key_field,columns_to_migrate):
+    def kbnk_to_tiban_vlookup(self,df_tiban,df_kbnk,key_field,columns_to_migrate,resulting_file):
         df_tiban,df_kbnk = f.map_data_to_first_df_from_second_by_key_up_to_five_columns(df_tiban,df_kbnk,key_field,columns_to_migrate)
+        df_tiban = df_tiban.drop(columns=[key_field])
 
-        return df_kbnk, df_tiban
+        df_tiban.to_excel(resulting_file,engine='openpyxl',sheet_name='TIBAN',index=False)
+        #os.startfile(resulting_file)
+        return df_kbnk, df_tiban,resulting_file
+
+    def tiban_to_bank_data_upload_vlookup(self,df_sap,df_tiban,key_field,columns_to_migrate,
+                                          resulting_file,tab_sap):
+        df_sap,df_tiban= f.map_data_to_first_df_from_second_by_key_up_to_five_columns(df_sap, df_tiban, key_field,
+                                                                                         columns_to_migrate)
+        sap_iban_list = df_sap['IBAN'].values
+        tiban_iban_list = df_tiban['IBAN'].values
+        sap_iban_count_tiban_iban_match_dict = {}
+        for sap_iban in sap_iban_list:
+            count = 0
+            for tiban_iban in tiban_iban_list:
+                if sap_iban == tiban_iban:
+                    count += 1
+            sap_iban_count_tiban_iban_match_dict.update({sap_iban:count})
+        df_sap = f.map_dataframe_column_via_dictionary_and_get_new_df(df_sap,'IBAN','matches_in_TIBAN',sap_iban_count_tiban_iban_match_dict)
+        f.soft_add_sheet_to_existing_xlsx(resulting_file,df_sap,tab_sap)
+        os.startfile(resulting_file)
 
 def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_names,unnecessary_symbols_list,resulting_file,
                    tab_sap,tab_legacy):
@@ -274,17 +294,18 @@ if __name__ == '__main__':
     transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_names,unnecessary_symbols_list,resulting_file,
                    tab_sap,tab_legacy)''' #Legacy Data - SAP Data migration entries check
 
-    df_sap, df_kbnk, df_tiban, percent, percent_names, \
+    '''df_sap, df_kbnk, df_tiban, percent, percent_names, \
     unnecessary_symbols_list, resulting_file,tab_sap, \
     tab_kbnk, tab_tiban, kbnk_key_columns,kbnk_columns_to_migrate,tiban_key_columns = \
         i.information_input_for_TIBAN_KBNK_check()
     key_col_list = ['BANK Key', 'BANK Account']
     df_kbnk = o.dataframe_two_field_progressive_key(df_kbnk,key_col_list,unnecessary_symbols_list)
     df_tiban = o.dataframe_two_field_progressive_key(df_tiban, key_col_list, unnecessary_symbols_list)
+    df_kbnk,df_tiban,resulting_file = o.kbnk_to_tiban_vlookup(df_tiban,df_kbnk,'progressive_key',kbnk_columns_to_migrate,resulting_file)
+    key_field = "IBAN"
+    o.tiban_to_bank_data_upload_vlookup(df_sap,df_tiban,key_field,kbnk_columns_to_migrate,resulting_file,tab_sap)''' #TIBAN - KNBK - UPLOAD check
 
-    df_kbnk,df_tiban = o.kbnk_tiban_vlookup(df_tiban,df_kbnk,'progressive_key',kbnk_columns_to_migrate)
-    print(df_tiban.columns)
-    print(df_tiban.head(5))
+
 
 
 
