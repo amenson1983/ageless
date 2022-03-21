@@ -61,8 +61,9 @@ class CFunctions:
         return df
 
     def map_dataframe_column_via_dictionary_and_get_new_df(self,df,target_column,new_column_name,dictionary):
-        df[new_column_name] = [dictionary.get(x) for x in df[target_column].values]
-        return df
+        self.df = df
+        self.df[new_column_name] = self.df[f'{target_column}'].apply(lambda x: pd.Series(x).map(dictionary))
+        return self.df
 
 class COperations:
 
@@ -166,6 +167,24 @@ class COperations:
 f = CFunctions()
 o = COperations()
 
+def information_input_for_transfer_check():
+    percent = 82
+    percent_names = 70
+    unnecessary_symbols_list = ["№","_","%","/","|",",",".",".",",","!"," "]
+    resulting_file = 'result.xlsx'
+
+    tab_sap = 'SAP Data'
+    df_ethalon = pd.read_excel('Comparison test_20220210.xlsx',sheet_name=tab_sap,engine='openpyxl')
+    ethalon_target_columns = ['Country', 'City', 'Postal Code']
+
+    print(df_ethalon.columns)
+
+    tab_legacy = 'Legacy Data'
+    df_legacy = pd.read_excel('Comparison test_20220210.xlsx', sheet_name=tab_legacy, engine='openpyxl')
+    legacy_target_columns = ['Country', 'City', 'Postal Code']
+    print(df_legacy.columns)
+
+    return df_legacy, df_ethalon, legacy_target_columns, percent, percent_names, unnecessary_symbols_list, resulting_file,tab_sap, tab_legacy
 
 def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_names,unnecessary_symbols_list,resulting_file,
                    tab_sap,tab_legacy):
@@ -213,21 +232,8 @@ def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_na
 
 
 if __name__ == '__main__':
-    percent = 82
-    percent_names = 65
-    unnecessary_symbols_list = ["№","_","%","/","|",",",".",".",",","!"," "]
-    resulting_file = 'result.xlsx'
-
-    tab_sap = 'SAP Data'
-    df_ethalon = pd.read_excel('Comparison test_20220210.xlsx',sheet_name=tab_sap,engine='openpyxl')
-    ethalon_target_columns = ['Country', 'City', 'Postal Code']
-
-    print(df_ethalon.columns)
-
-    tab_legacy = 'Legacy Data'
-    df_legacy = pd.read_excel('Comparison test_20220210.xlsx', sheet_name=tab_legacy, engine='openpyxl')
-    legacy_target_columns = ['Country', 'City', 'Postal Code']
-    print(df_legacy.columns)
+    df_legacy, df_ethalon, legacy_target_columns, percent, percent_names,\
+    unnecessary_symbols_list, resulting_file,tab_sap, tab_legacy = information_input_for_transfer_check()
 
     transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_names,unnecessary_symbols_list,resulting_file,
                    tab_sap,tab_legacy)
