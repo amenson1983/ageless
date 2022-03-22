@@ -8,10 +8,10 @@ from openpyxl import load_workbook
 
 class CInformations:
 
-    def information_input_for_transfer_check(self):
+    def information_input_for_transfer_check(self,unnecessary_symbols_list):
         percent = 82
         percent_names = 70
-        unnecessary_symbols_list = ["№", "_", "%", "/", "|", ",", ".", ".", ",", "!", " "]
+
         resulting_file = 'result_LEGACY_SAP.xlsx'
         analisys_tab = 'Analisys tab'
         tab_sap = 'SAP Data'
@@ -27,10 +27,10 @@ class CInformations:
 
         return df_legacy, df_ethalon, legacy_target_columns, percent, percent_names, unnecessary_symbols_list, resulting_file, tab_sap, tab_legacy,analisys_tab
 
-    def information_input_for_TIBAN_KBNK_check(self):
+    def information_input_for_TIBAN_KBNK_check(self,unnecessary_symbols_list):
         percent = 82
         percent_names = 70
-        unnecessary_symbols_list = ["№", "_", "%", "/", "|", ",", ".", ".", ",", "!", " "]
+
         resulting_file = 'result_TIBAN_KBNK.xlsx'
 
         tab_sap = 'Bank Data UPLOAD'
@@ -112,11 +112,38 @@ class CFunctions:
         self.df[new_column_name] = self.df[f'{target_column}'].apply(lambda x: pd.Series(x).map(dictionary))
         return self.df
 
-    def map_data_to_first_df_from_second_by_key_up_to_five_columns(self,df1,df2,key_field,columns_to_map):
+    def map_data_to_first_df_from_second_by_key(self, df1, df2, key_field, columns_to_map):
         for i in range(0,len(columns_to_map)):
             data_dict = dict(zip(df2[key_field].values,df2[columns_to_map[i]].values))
             df1 = self.map_dataframe_column_via_dictionary_and_get_new_df(df1,key_field,f"{columns_to_map[i]}",data_dict)
         return df1,df2
+
+    def vlookup_column(self,df_current,df_source,key_field,columns_to_migrate,temp_file):
+        for column in columns_to_migrate:
+            transfer_keys = df_source[key_field].values
+            transfer_values = df_source[column].values
+            dictionary_transfer = dict(zip(transfer_keys,transfer_values))
+            df_current = self.map_dataframe_column_via_dictionary_and_get_new_df(df_current,key_field,f"{column}_from_source",dictionary_transfer)
+            df_source.to_excel(temp_file,engine='openpyxl',sheet_name='source_data',index=False)
+            df_current[f"{column}_from_source"] = df_current[f"{column}_from_source"].fillna('not_found')
+            f.soft_add_sheet_to_existing_xlsx(temp_file,df_current,'vlookup_result')
+            os.startfile(temp_file)
+        return df_current,temp_file
+
+    def sumif_column(self,df_current,df_source,key_field,columns_to_sum,temp_file):
+
+        df_current_list = df_current[key_field].values
+        for column in columns_to_sum:
+            list_temp = []
+            for cur in df_current_list:
+                sum_ = df_source[column].loc[df_source[key_field] == cur].sum()
+                list_temp.append(sum_)
+            df_current[f"{column}_sum_from_source"] = list_temp
+        df_current.to_excel(temp_file, engine='openpyxl', sheet_name='sum_if_result', index=False)
+        f.soft_add_sheet_to_existing_xlsx(temp_file, df_source, 'source_data')
+        os.startfile(temp_file)
+        return df_current,temp_file
+
 
 class COperations:
 
@@ -218,7 +245,7 @@ class COperations:
         return df_legacy_with_common_city,df_ethalon
 
     def kbnk_to_tiban_vlookup(self,df_tiban,df_kbnk,key_field,columns_to_migrate,resulting_file):
-        df_tiban,df_kbnk = f.map_data_to_first_df_from_second_by_key_up_to_five_columns(df_tiban,df_kbnk,key_field,columns_to_migrate)
+        df_tiban,df_kbnk = f.map_data_to_first_df_from_second_by_key(df_tiban, df_kbnk, key_field, columns_to_migrate)
         df_tiban = df_tiban.drop(columns=[key_field])
 
         df_tiban.to_excel(resulting_file,engine='openpyxl',sheet_name='TIBAN',index=False)
@@ -227,9 +254,9 @@ class COperations:
 
     def tiban_to_bank_data_upload_vlookup(self,df_sap,df_tiban,key_field,columns_to_migrate,
                                           resulting_file,tab_sap):
-        df_sap,df_tiban= f.map_data_to_first_df_from_second_by_key_up_to_five_columns(df_sap, df_tiban, key_field,columns_to_migrate)
-        sap_iban_list = df_sap['IBAN'].values
-        tiban_iban_list = df_tiban['IBAN'].values
+        df_sap,df_tiban= f.map_data_to_first_df_from_second_by_key(df_sap, df_tiban, key_field, columns_to_migrate)
+        sap_iban_list = df_sap[key_field].values
+        tiban_iban_list = df_tiban[key_field].values
         sap_iban_count_tiban_iban_match_dict = {}
         for sap_iban in sap_iban_list:
             count = 0
@@ -240,6 +267,8 @@ class COperations:
         df_sap = f.map_dataframe_column_via_dictionary_and_get_new_df(df_sap,'IBAN','matches_in_TIBAN',sap_iban_count_tiban_iban_match_dict)
         f.soft_add_sheet_to_existing_xlsx(resulting_file,df_sap,tab_sap)
         os.startfile(resulting_file)
+
+
 
 def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_names,unnecessary_symbols_list,resulting_file,
                    tab_sap,tab_legacy):
@@ -286,9 +315,9 @@ def transfer_check(df_legacy,df_ethalon,legacy_target_columns,percent,percent_na
     return df_legacy_with_common_city,df_ethalon, resulting_file
 
 
-def LegacySapWorkout():
+def LegacySapWorkout(unnecessary_symbols_list):
     df_legacy, df_ethalon, legacy_target_columns, percent, percent_names, \
-    unnecessary_symbols_list, resulting_file, tab_sap, tab_legacy, analisys_tab = i.information_input_for_transfer_check()
+    unnecessary_symbols_list, resulting_file, tab_sap, tab_legacy, analisys_tab = i.information_input_for_transfer_check(unnecessary_symbols_list)
     df_legacy_with_common_city, df_ethalon, resulting_file = transfer_check(df_legacy, df_ethalon,
                                                                             legacy_target_columns, percent,
                                                                             percent_names, unnecessary_symbols_list,
@@ -303,10 +332,10 @@ def LegacySapWorkout():
                                                                   ['Postal Code', 'city_ethalon', 'streets_ethalon'],
                                                                   keyfield)
     df_ethalon = df_ethalon.rename(columns={"Name 1": "Name 1 SAP", "Name 2": "Name 2 SAP"})
-    df_ethalon, df_legacy_with_common_city = f.map_data_to_first_df_from_second_by_key_up_to_five_columns(df_ethalon,
-                                                                                                          df_legacy_with_common_city,
-                                                                                                          keyfield,
-                                                                                                          ['Name 1',
+    df_ethalon, df_legacy_with_common_city = f.map_data_to_first_df_from_second_by_key(df_ethalon,
+                                                                                       df_legacy_with_common_city,
+                                                                                       keyfield,
+                                                                                       ['Name 1',
                                                                                                            'Name 2'])
     df_ethalon = df_ethalon.drop(columns=['key_for_analisys'])
     df_ethalon = df_ethalon.rename(columns={"Name 1": "Name 1 Legacy", "Name 2": "Name 2 Legacy"})
@@ -318,11 +347,11 @@ def LegacySapWorkout():
     os.startfile(resulting_file)
 
 
-def TibanKnbkUploadCheck():
+def TibanKnbkUploadCheck(unnecessary_symbols_list):
     i = CInformations()
     df_sap, df_kbnk, df_tiban, percent, percent_names, \
     unnecessary_symbols_list, resulting_file, tab_sap, \
-    tab_kbnk, tab_tiban, kbnk_key_columns, kbnk_columns_to_migrate, tiban_key_columns = i.information_input_for_TIBAN_KBNK_check()
+    tab_kbnk, tab_tiban, kbnk_key_columns, kbnk_columns_to_migrate, tiban_key_columns = i.information_input_for_TIBAN_KBNK_check(unnecessary_symbols_list)
     key_col_list = ['BANK Key', 'BANK Account']
     df_kbnk = o.dataframe_two_field_progressive_key(df_kbnk, key_col_list, unnecessary_symbols_list)
     df_tiban = o.dataframe_two_field_progressive_key(df_tiban, key_col_list, unnecessary_symbols_list)
@@ -343,10 +372,37 @@ i = CInformations()
 
 if __name__ == '__main__':
 
-    #LegacySapWorkout() #Legacy Data - SAP Data migration entries check
+    unnecessary_symbols_list = ["№", "_", "%", "/", "|", ",", ".", ".", ",", "!", " "]
 
-    #TibanKnbkUploadCheck() # TIBAN - KNBK - UPLOAD check
+    #LegacySapWorkout(unnecessary_symbols_list) #Legacy Data - SAP Data migration entries check
 
+    #TibanKnbkUploadCheck(unnecessary_symbols_list) # TIBAN - KNBK - UPLOAD check
+    df_current = pd.DataFrame()
+    df_current['number'] = [1,2,3,4]
+
+    df_source = pd.DataFrame()
+    df_source['number'] = [1,2,3,4,1]
+    df_source['value'] = ['Азитромицин','Апилак ,  мазь, 10мг/г, 50г',
+                          'Атракурий Калцекс ,р-р д/ин, 10мг/мл по 5 мл  ',
+                          'АукСИЛен®, 50 мг/2 мл по 2 мл',
+                          'Азитромицин']
+    df_source['sales_packs'] = [4,3,2,0,10]
+    df_source['sales_euro'] = df_source['sales_packs'] * 9.17
+    key_field, columns_to_migrate = 'number',['value']
+    columns_to_sum = ['sales_packs','sales_euro']
+
+    ethalon_map_values = ['Азитромицин Гриндекс табл. 500мг №3',
+                          'Апилак ,  мазь, 10мг/г, 50г в тубе',
+                          'Атракурий Калцекс ,р-р д/ин, 10мг/мл по 5 мл в ампулах №5',
+                          'Ауксилен®,  50 мг/2 мл по 2 мл в ампулах №5']
+
+    values_mapped_list,problematic_items = o.list_correction_to_ethalon_naming_list(df_source['value'].values,ethalon_map_values,77)
+    df_source['value'] = values_mapped_list
+    temp_file = 'temp.xlsx'
+
+    df_current,temp_file_ = f.vlookup_column(df_current,df_source,key_field,columns_to_migrate,temp_file)
+    temp_file = 'temp1.xlsx'
+    df_current,temp_file = f.sumif_column(df_current,df_source,key_field,columns_to_sum,temp_file)
 
 
 
