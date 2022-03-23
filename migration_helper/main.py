@@ -80,7 +80,7 @@ class CFunctions_for_app():
     def sheets(self, new_sheets):
         self._sheets = new_sheets
 
-    def onselect(self,evt):
+    def onselect_sheet(self,evt):
         w = evt.widget
         i = int(w.curselection()[0])
         value = w.get(i)
@@ -88,6 +88,14 @@ class CFunctions_for_app():
 
         return value
 
+
+    def onselect_col(self,evt):
+        w = evt.widget
+        i = int(w.curselection()[0])
+        value = w.get(i)
+        self._key_columns_selection.append(value)
+
+        return value
 
     def get_path(self):
         path = askopenfilename()
@@ -101,27 +109,28 @@ class CFunctions_for_app():
         for item in self._sheets:
             self._mylistbox.insert(END, item)
         self._mylistbox.pack(pady=15)
-        self._mylistbox.bind('<<ListboxSelect>>', self.onselect)
+        self._mylistbox.bind('<<ListboxSelect>>', self.onselect_sheet)
+
+
 
     def get_columns_actual(self):
+
         df = pd.read_excel(self._path,self._sheetactual)
         self._cols = df.columns
         self._mylistbox.delete(0, END)
         for item in self._cols:
             self._mylistbox.insert(END, item)
         self._mylistbox.pack(pady=15)
-        self._mylistbox.bind('<<ListboxSelect>>', self.onselect)
+        self._mylistbox.bind('<<ListboxSelect>>', self.onselect_col)
 
 
     def erase_key_columns_selection(self):
         self._key_columns_selection = []
-        self._sheetactual = ''
-        self._cols = []
+
 
     def define_key_columns_selection(self):
         selection = self._mylistbox.curselection()
-        if self._cols[selection[0]] not in self._key_columns_selection:
-            self._key_columns_selection.append(self._cols[selection[0]])
+        self._key_columns_selection.append(self._cols[selection[0]])
 
 
 
@@ -138,15 +147,15 @@ class CFunctions_for_app():
         print(df)
 
     def show_dataframe(self):
-
-        df1 = pd.read_excel(self._path, self._sheets[0])
+        print(self._sheetactual)
+        df1 = pd.read_excel(self._path, self._sheetactual)
         df = pd.DataFrame()
         for col in self._key_columns_selection:
             df[col] = df1[col]
 
         rows, cols = df.shape
         window_dataframe = tk.Tk()
-        window_dataframe.title(f"Sheet {self._sheets[0]} from {self._path}")
+        window_dataframe.title(f"Sheet {self._sheetactual} from {self._path}")
         for r in range(rows):
             for c in range(cols):
                 e = tk.Entry(window_dataframe)
@@ -172,6 +181,7 @@ background.place(x=0, y=0)
 
 f._information_label = Label(background, text=f._key_columns_selection, bg="white", fg="black")
 f._information_label.place(x=120, y=450)
+
 
 open_file_button = tk.Button(window,text="Open file",bg="#B4D2F3",fg="black",command=f.get_path,font='Times 15')
 open_file_button.place(x=10, y=10)
