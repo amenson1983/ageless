@@ -13,7 +13,7 @@ class CFunctions_for_app():
         self._mylistbox = ''
         self._key_columns_selection = []
         self._cols = []
-        self._information_label = Label()
+        self._information_label = ''
         self._show_df_button = tk.Button()
         self.window = window
     @property
@@ -93,7 +93,6 @@ class CFunctions_for_app():
         w = evt.widget
         i = int(w.curselection()[0])
         value = w.get(i)
-        self._key_columns_selection.append(value)
 
         return value
 
@@ -124,13 +123,19 @@ class CFunctions_for_app():
         self._mylistbox.bind('<<ListboxSelect>>', self.onselect_col)
 
 
+
     def erase_key_columns_selection(self):
         self._key_columns_selection = []
-
+        self._information_label = tk.Label(background,text=self._key_columns_selection)
+        self._information_label.place(x=120, y=450)
 
     def define_key_columns_selection(self):
         selection = self._mylistbox.curselection()
-        self._key_columns_selection.append(self._cols[selection[0]])
+        if selection[0] not in self._key_columns_selection:
+            self._key_columns_selection.append(self._cols[selection[0]])
+        else: pass
+        self._information_label = tk.Label(background,text=self._key_columns_selection)
+        self._information_label.place(x=120, y=450)
 
 
 
@@ -149,22 +154,26 @@ class CFunctions_for_app():
     def show_dataframe(self):
         print(self._sheetactual)
         df1 = pd.read_excel(self._path, self._sheetactual)
+
         df = pd.DataFrame()
         for col in self._key_columns_selection:
             df[col] = df1[col]
 
         rows, cols = df.shape
         window_dataframe = tk.Tk()
-        window_dataframe.title(f"Sheet {self._sheetactual} from {self._path}")
+        window_dataframe.title(f"Sheet: {self._sheetactual}")
+        window_dataframe.resizable(width=True, height=False)
+
         for r in range(rows):
             for c in range(cols):
-                e = tk.Entry(window_dataframe)
+                e = tk.Entry(window_dataframe,width=40)
                 e.insert(0, df.iloc[r, c])
                 e.grid(row=r, column=c)
                 # ENTER
                 e.bind('<Return>', lambda event, y=r, x=c: f.change(df,event, y, x))
                 # ENTER on keypad
                 e.bind('<KP_Enter>', lambda event, y=r, x=c: f.change(df,event, y, x))
+
 
         window_dataframe.mainloop()
 
@@ -179,9 +188,6 @@ bg = PhotoImage(file="images/login_background.png")
 background = Label(window, image=bg)
 background.place(x=0, y=0)
 
-f._information_label = Label(background, text=f._key_columns_selection, bg="white", fg="black")
-f._information_label.place(x=120, y=450)
-
 
 open_file_button = tk.Button(window,text="Open file",bg="#B4D2F3",fg="black",command=f.get_path,font='Times 15')
 open_file_button.place(x=10, y=10)
@@ -195,7 +201,7 @@ define_columns_button.place(x=10, y=90)
 define_selected_columns_button = tk.Button(window,text="Choose columns",bg="#B4D2F3",fg="black",command=f.define_key_columns_selection,font='Times 15')
 define_selected_columns_button.place(x=10, y=130)
 
-show_df_button = tk.Button(window,text="Show dataframe",bg="#B4D2F3",fg="black",command=f.show_dataframe,font='Times 15')
+show_df_button = tk.Button(window,text="Preview dataframe",bg="#B4D2F3",fg="black",command=f.show_dataframe,font='Times 15')
 show_df_button.place(x=10, y=170)
 
 erase_listbox_button = tk.Button(window,text="Destroy ListBox",bg="#B4D2F3",fg="black",command=f.destroy_listbox,font='Times 15')
