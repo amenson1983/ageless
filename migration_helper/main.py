@@ -240,23 +240,28 @@ class CFunctions_for_app():
         self._path = path
 
     def get_sheets(self):
-        file = pd.ExcelFile(self._path)
-        self._sheets = file.sheet_names
-        self._mylistbox = tk.Listbox(window)
-        for item in self._sheets:
-            self._mylistbox.insert(END, item)
-        self._mylistbox.pack(pady=15)
-        self._mylistbox.bind('<<ListboxSelect>>', self.onselect_sheet)
+        try:
+            file = pd.ExcelFile(self._path)
+            self._sheets = file.sheet_names
+            self._mylistbox = tk.Listbox(window)
+            for item in self._sheets:
+                self._mylistbox.insert(END, item)
+            self._mylistbox.pack(pady=15)
+            self._mylistbox.bind('<<ListboxSelect>>', self.onselect_sheet)
+        except IndexError:
+            pass
 
     def get_columns_actual(self):
-
-        df = pd.read_excel(self._path,self._sheetactual)
-        self._cols = df.columns
-        self._mylistbox.delete(0, END)
-        for item in self._cols:
-            self._mylistbox.insert(END, item)
-        self._mylistbox.pack(pady=15)
-        self._mylistbox.bind('<<ListboxSelect>>', self.onselect_col)
+        try:
+            df = pd.read_excel(self._path,self._sheetactual)
+            self._cols = df.columns
+            self._mylistbox.delete(0, END)
+            for item in self._cols:
+                self._mylistbox.insert(END, item)
+            self._mylistbox.pack(pady=15)
+            self._mylistbox.bind('<<ListboxSelect>>', self.onselect_col)
+        except IndexError:
+            pass
 
     def erase_key_columns_selection(self):
         self._slave_columns_selection = []
@@ -327,6 +332,42 @@ class CFunctions_for_app():
         self._df_income_selected = pd.DataFrame()
         self._slave_columns_selection = []
 
+    def get_sheets_in_working_file(self):
+        try:
+            file = pd.ExcelFile(self.working_file)
+            self._sheets = file.sheet_names
+            self._mylistbox = tk.Listbox(window)
+            for item in self._sheets:
+                self._mylistbox.insert(END, item)
+            self._mylistbox.pack(pady=15)
+            self._mylistbox.bind('<<ListboxSelect>>', self.onselect_sheet)
+        except IndexError:
+            pass
+
+    def get_columns_actual_in_working_file(self):
+        try:
+            df = pd.read_excel(self.working_file,self._sheetactual)
+            self._cols = df.columns
+            self._mylistbox.delete(0, END)
+            for item in self._cols:
+                self._mylistbox.insert(END, item)
+            self._mylistbox.pack(pady=15)
+            self._mylistbox.bind('<<ListboxSelect>>', self.onselect_col)
+        except IndexError:
+            pass
+
+    def define_key_columns_selection_in_working_file(self):
+        df = pd.read_excel(self.working_file,self._sheetactual)
+        self._cols = df.columns
+        selection = self._mylistbox.curselection()
+        if selection[0] not in self._slave_columns_selection:
+            self._slave_columns_selection.append(self._cols[selection[0]])
+        else: pass
+        self._information_label = tk.Label(background, text=self._slave_columns_selection)
+        self._information_label.place(x=120, y=450)
+
+
+
 window = tk.Tk()
 ff = CFunctions_for_app(window)
 f = CFunctions()
@@ -359,7 +400,16 @@ erase_listbox_button = tk.Button(window,text="Clear input data",bg="#B4D2F3",fg=
 erase_listbox_button.place(x=10, y=214)
 
 switch_to_ethalon_button = tk.Button(window,text="Selected ethalon dataframe to xlsx",bg="#FCA65E",fg="black",command=ff.add_selected_ethalon_data_to_temporary_xlsx,font='Times 13')
-switch_to_ethalon_button.place(x=570, y=10)
+switch_to_ethalon_button.place(x=10, y=248)
+
+get_sheets_in_working_file_button = tk.Button(window,text="Get sheets from working file",bg="#FCA65E",fg="black",command=ff.get_sheets_in_working_file,font='Times 13')
+get_sheets_in_working_file_button.place(x=10, y=282)
+
+get_cols_in_working_file_button = tk.Button(window,text="Get columns from working file",bg="#FCA65E",fg="black",command=ff.get_columns_actual_in_working_file,font='Times 13')
+get_cols_in_working_file_button.place(x=10, y=316)
+
+add_columns_actual_in_working_file_button = tk.Button(window,text="Add columns from working file",bg="#FCA65E",fg="black",command=ff.define_key_columns_selection_in_working_file,font='Times 13')
+add_columns_actual_in_working_file_button.place(x=10, y=350)
 
 window.mainloop()
 
