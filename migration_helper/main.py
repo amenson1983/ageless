@@ -106,18 +106,20 @@ class CFunctions:
 
 
 class CFunctions_for_app():
-    def __init__(self,window):
+    def __init__(self,window,background):
+        self.background = background
         self._sheets = ''
         self._sheetactual = ''
         self._path = ''
         self._mylistbox = ''
         self._mylistbox_two = ''
         self._slave_columns_selection = []
-        self._slave_column_to_change = ''
+        self._slave_column_to_change = []
         self._cols = []
-        self._information_label = ''
+        self._information_label = tk.Label(window)
         self._show_df_button = tk.Button()
         self._df_income_selected = pd.DataFrame()
+        self.confirmed_col_to_change = ''
         self.working_file = 'working_file.xlsx'
         self.raw_selected_sheet_name = 'raw_selected'
         self.ethalon_selected_sheet_name = 'ethalon_selected'
@@ -224,7 +226,6 @@ class CFunctions_for_app():
         print(w.curselection())
         i = int(w.curselection()[0])
         value = w.get(i)
-
         return value
 
     def onselect_col_to_change(self, evt):
@@ -263,23 +264,31 @@ class CFunctions_for_app():
         except IndexError:
             pass
 
-    def erase_key_columns_selection(self):
-        self._slave_columns_selection = []
-        self._information_label = []
-        self._information_label = tk.Label(background, text=self._slave_columns_selection)
-        self._information_label.place(x=120, y=450)
+
 
     def define_key_columns_selection(self):
         selection = self._mylistbox.curselection()
         if selection[0] not in self._slave_columns_selection:
             self._slave_columns_selection.append(self._cols[selection[0]])
         else: pass
-        self._information_label = tk.Label(background, text=self._slave_columns_selection)
-        self._information_label.place(x=120, y=450)
+        self._information_label.destroy()
+        self._information_label = tk.Label(window, text=self._slave_columns_selection)
+        self._information_label.place(x=450, y=555)
+
 
     def destroy_listbox(self):
+        self._slave_columns_selection = []
         self._mylistbox.destroy()
-        self.erase_key_columns_selection()
+        self._information_label.destroy()
+        self._information_label = tk.Label(window, text='No selected columns')
+
+
+    def destroy_list_col_to_change(self):
+        self._slave_column_to_change = []
+        self._mylistbox.destroy()
+        self._information_label.destroy()
+        self._information_label = tk.Label(window, text='No selected columns')
+
 
     def change(self,df,event, row, col):
         # get value from Entry
@@ -353,7 +362,7 @@ class CFunctions_for_app():
                 self._mylistbox.insert(END, item)
             self._mylistbox.pack(pady=15)
             self._mylistbox.bind('<<ListboxSelect>>', self.onselect_col)
-            self._slave_columns_selection = []
+            self._slave_column_to_change = []
         except IndexError:
             pass
 
@@ -362,22 +371,42 @@ class CFunctions_for_app():
         self._cols = df.columns
         selection = self._mylistbox.curselection()
         if selection[0] not in self._slave_columns_selection:
-            self._slave_columns_selection.append(self._cols[selection[0]])
+            self._slave_column_to_change.append(self._cols[selection[0]])
         else: pass
-        self._information_label = tk.Label(background, text=self._slave_columns_selection)
-        self._information_label.place(x=120, y=450)
-        print(self._slave_columns_selection)
+        self._information_label.destroy()
+        self._information_label = tk.Label(window, text=self._slave_column_to_change)
+        self._information_label.place(x=450, y=555)
+        print(self._slave_column_to_change)
+
+    def confirm_column_to_change(self):
+
+        self.confirmed_col_to_change = self._slave_column_to_change[0]
+        self._information_label.destroy()
+        self._information_label = tk.Label(window, text=self.confirmed_col_to_change)
+        self._information_label.place(x=450, y=555)
+        print(self.confirmed_col_to_change)
 
 
+    def erase_confirmed_column_to_change(self):
+        self._slave_column_to_change = []
+        self.confirmed_col_to_change = 'No confirmed column to change'
+        self._information_label.destroy()
+        self._information_label = tk.Label(window, text=self.confirmed_col_to_change)
+        self._information_label.place(x=450, y=555)
+        print(self.confirmed_col_to_change)
 
 window = tk.Tk()
-ff = CFunctions_for_app(window)
+bg = PhotoImage(file="C:\\ageless\\migration_helper\\images\\login_background.png")
+background = Label(window, image=bg)
+
+ff = CFunctions_for_app(window,background)
 f = CFunctions()
 window.title("Migration Helper v 0.1")
 window.geometry("830x600+500+150")
-bg = PhotoImage(file="C:\\ageless\\migration_helper\\images\\login_background.png")
-background = Label(window, image=bg)
+
+
 background.place(x=0, y=0)
+
 
 
 open_file_button = tk.Button(window,text="Open file",bg="#B4D2F3",fg="black",command=ff.get_path,font='Times 13')
@@ -395,13 +424,12 @@ define_selected_columns_button.place(x=10, y=112)
 show_df_button = tk.Button(window,text="Preview dataframe",bg="#B4D2F3",fg="black",command=ff.show_dataframe,font='Times 13')
 show_df_button.place(x=10, y=146)
 
-to_xlsx_df_button = tk.Button(window,text="Selected raw dataframe to xlsx",bg="#B4D2F3",fg="black",command=ff.put_selected_income_data_to_temporary_xlsx,font='Times 13')
-to_xlsx_df_button.place(x=10, y=180)
+to_xlsx_df_button = tk.Button(window,text="Selected raw dataframe to xlsx",bg="#FED807",fg="black",command=ff.put_selected_income_data_to_temporary_xlsx,font='Times 13')
+to_xlsx_df_button.place(x=10, y=214)
 
-erase_listbox_button = tk.Button(window,text="Clear input data",bg="#FC0804",fg="#F9F3F3",command=ff.destroy_listbox,font='Times 13')
-erase_listbox_button.place(x=10, y=214)
 
-switch_to_ethalon_button = tk.Button(window,text="Selected ethalon dataframe to xlsx",bg="#FCA65E",fg="black",command=ff.add_selected_ethalon_data_to_temporary_xlsx,font='Times 13')
+
+switch_to_ethalon_button = tk.Button(window,text="Selected ethalon dataframe to xlsx",bg="#07FE68",fg="black",command=ff.add_selected_ethalon_data_to_temporary_xlsx,font='Times 13')
 switch_to_ethalon_button.place(x=10, y=248)
 
 get_sheets_in_working_file_button = tk.Button(window,text="Get sheets from working file",bg="#FCA65E",fg="black",command=ff.get_sheets_in_working_file,font='Times 13')
@@ -410,11 +438,20 @@ get_sheets_in_working_file_button.place(x=10, y=282)
 get_cols_in_working_file_button = tk.Button(window,text="Get columns from working file",bg="#FCA65E",fg="black",command=ff.get_columns_actual_in_working_file,font='Times 13')
 get_cols_in_working_file_button.place(x=10, y=316)
 
-add_columns_actual_in_working_file_button = tk.Button(window,text="Add columns from working file",bg="#FCA65E",fg="black",command=ff.define_key_columns_selection_in_working_file,font='Times 13')
+add_columns_actual_in_working_file_button = tk.Button(window,text="Add columns from working file for change",bg="#FCA65E",fg="black",command=ff.define_key_columns_selection_in_working_file,font='Times 13')
 add_columns_actual_in_working_file_button.place(x=10, y=350)
 
-erase_working_button = tk.Button(window,text="Clear working file data",bg="#FC0804",fg="#F9F3F3",command=ff.destroy_listbox,font='Times 13')
-erase_working_button.place(x=10, y=384)
+confirm_columns_to_change_button = tk.Button(window,text="Confirm column to change",bg="#FED807",fg="black",command=ff.confirm_column_to_change,font='Times 13')
+confirm_columns_to_change_button.place(x=10, y=384)
+
+erase_listbox_button = tk.Button(window,text="Clear input data",bg="#FC0804",fg="#F9F3F3",command=ff.destroy_listbox,font='Times 13')
+erase_listbox_button.place(x=555, y=10)
+
+erase_working_button = tk.Button(window,text="Clear working file data",bg="#FC0804",fg="#F9F3F3",command=ff.destroy_list_col_to_change,font='Times 13')
+erase_working_button.place(x=555, y=44)
+
+erase_confirmed_column_to_change_button = tk.Button(window,text="Clear confirmed column to change",bg="#FC0804",fg="#F9F3F3",command=ff.erase_confirmed_column_to_change,font='Times 13')
+erase_confirmed_column_to_change_button.place(x=555, y=78)
 
 window.mainloop()
 
