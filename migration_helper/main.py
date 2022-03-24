@@ -318,8 +318,8 @@ class CFunctions_for_app():
 
     def add_selected_income_data_to_temporary_xlsx(self):
         print(self._df_income_selected)
-        #self._df_income_selected.to_excel(self.working_file,sheet_name=self.raw_selected_sheet_name,index=False)
-        f.soft_add_sheet_to_existing_xlsx(self.working_file,self._df_income_selected,self.raw_selected_sheet_name)
+        self._df_income_selected.to_excel(self.working_file,sheet_name=self.raw_selected_sheet_name,index=False)
+        #f.soft_add_sheet_to_existing_xlsx(self.working_file,self._df_income_selected,self.raw_selected_sheet_name)
         os.startfile(self.working_file)
         self._df_income_selected = pd.DataFrame()
         self._slave_columns_selection = []
@@ -353,6 +353,7 @@ class CFunctions_for_app():
                 self._mylistbox.insert(END, item)
             self._mylistbox.pack(pady=15)
             self._mylistbox.bind('<<ListboxSelect>>', self.onselect_col)
+            self._slave_columns_selection = []
         except IndexError:
             pass
 
@@ -365,6 +366,7 @@ class CFunctions_for_app():
         else: pass
         self._information_label = tk.Label(background, text=self._slave_columns_selection)
         self._information_label.place(x=120, y=450)
+        print(self._slave_columns_selection)
 
 
 
@@ -396,7 +398,7 @@ show_df_button.place(x=10, y=146)
 to_xlsx_df_button = tk.Button(window,text="Selected raw dataframe to xlsx",bg="#B4D2F3",fg="black",command=ff.put_selected_income_data_to_temporary_xlsx,font='Times 13')
 to_xlsx_df_button.place(x=10, y=180)
 
-erase_listbox_button = tk.Button(window,text="Clear input data",bg="#B4D2F3",fg="black",command=ff.destroy_listbox,font='Times 13')
+erase_listbox_button = tk.Button(window,text="Clear input data",bg="#FC0804",fg="#F9F3F3",command=ff.destroy_listbox,font='Times 13')
 erase_listbox_button.place(x=10, y=214)
 
 switch_to_ethalon_button = tk.Button(window,text="Selected ethalon dataframe to xlsx",bg="#FCA65E",fg="black",command=ff.add_selected_ethalon_data_to_temporary_xlsx,font='Times 13')
@@ -410,6 +412,9 @@ get_cols_in_working_file_button.place(x=10, y=316)
 
 add_columns_actual_in_working_file_button = tk.Button(window,text="Add columns from working file",bg="#FCA65E",fg="black",command=ff.define_key_columns_selection_in_working_file,font='Times 13')
 add_columns_actual_in_working_file_button.place(x=10, y=350)
+
+erase_working_button = tk.Button(window,text="Clear working file data",bg="#FC0804",fg="#F9F3F3",command=ff.destroy_listbox,font='Times 13')
+erase_working_button.place(x=10, y=384)
 
 window.mainloop()
 
