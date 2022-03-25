@@ -22,8 +22,11 @@ class CFunctions:
         mapping_item_dictionary = {}
         changed_string = []
         for symb in unnecessary_symbols_list:
-            changed_string_ = string.lower()
-            changed_string = changed_string_.split(symb)
+            try:
+                changed_string_ = string.lower()
+            except Exception:
+                changed_string_ = string
+            changed_string = str(changed_string_).split(symb)
             changed_string = ''.join(changed_string)
             changed_string = changed_string.translate({ord(symb):None})
         for symb in unnecessary_symbols_list:
@@ -470,6 +473,9 @@ class CFunctions_for_app():
         conf_eth_list = df_eth[self.confirmed_col_ethalon].values
         corrected_list,problematic_items = f.list_correction_to_ethalon_naming_list(conf_change_list,conf_eth_list,accuracy)
         df_raw[f"mapped_from_{self.confirmed_col_ethalon}"] =  corrected_list
+        if 'key' in df_raw.columns:
+            df_raw = df_raw.rename(columns={'key':f"{self.confirmed_col_ethalon}_original",
+                                            f"mapped_from_{self.confirmed_col_ethalon}":'key'})
         print(corrected_list)
         f.soft_add_sheet_to_existing_xlsx(self.working_file,df_raw,self.raw_selected_sheet_name)
         os.startfile(self.working_file)
@@ -499,9 +505,11 @@ class CFunctions_for_app():
 
     def vlookup_necessary_columns_to_raw(self):
         sheet_source = self.ethalon_selected_sheet_name
+        sheet_raw = self.raw_selected_sheet_name
         df_source = pd.read_excel(self.working_file,sheet_source)
+        df_current = pd.read_excel(self.working_file,sheet_raw)
         key_field = self.key_field.get()
-        df = f.vlookup_column(self._df_active,df_source,key_field,self._slave_column_to_change)
+        df = f.vlookup_column(df_current,df_source,key_field,self._slave_column_to_change)
         f.soft_add_sheet_to_existing_xlsx(self.working_file,df,self.raw_selected_sheet_name)
         os.startfile(self.working_file)
 
