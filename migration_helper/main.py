@@ -75,17 +75,15 @@ class CFunctions:
             df1 = self.map_dataframe_column_via_dictionary_and_get_new_df(df1,key_field,f"{columns_to_map[i]}",data_dict)
         return df1,df2
 
-    def vlookup_column(self,df_current,df_source,key_field,columns_to_migrate,temp_file):
+    def vlookup_column(self,df_current,df_source,key_field,columns_to_migrate):
         for column in columns_to_migrate:
             transfer_keys = df_source[key_field].values
             transfer_values = df_source[column].values
             dictionary_transfer = dict(zip(transfer_keys,transfer_values))
-            df_current = self.map_dataframe_column_via_dictionary_and_get_new_df(df_current,key_field,f"{column}_from_source",dictionary_transfer)
-            df_source.to_excel(temp_file,engine='openpyxl',sheet_name='source_data',index=False)
-            df_current[f"{column}_from_source"] = df_current[f"{column}_from_source"].fillna('not_found')
-            f.soft_add_sheet_to_existing_xlsx(temp_file,df_current,'vlookup_result')
-            os.startfile(temp_file)
-        return df_current,temp_file
+
+            df_current = self.map_dataframe_column_via_dictionary_and_get_new_df(df_current,key_field,column,dictionary_transfer)
+
+        return df_current
 
     def sumif_column(self,df_current,df_source,key_field,columns_to_sum,temp_file):
 
@@ -131,7 +129,8 @@ class CFunctions_for_app():
         self.unnecessary_symbols_list = ["№", "_","-", "%", "/", "|", ",", ".", ".", ",", "!", " "]
         self.unnecessary_symbols_replace_dict = {"ß":"ss",
                                                  "ö":"oe",
-                                                 "ü":"u"}
+                                                 "ü":"u",
+                                                 "ä":"a"}
         self._slave_columns_selection = []
         self._slave_column_to_change = []
         self._remove_unnesc_symb_list = []
@@ -154,6 +153,7 @@ class CFunctions_for_app():
         self._df_active = pd.DataFrame()
         self.confirmed_col_to_change = ''
         self.confirmed_col_ethalon = ''
+        self.key_field = tk.StringVar(window)
         self.working_file = 'working_file.xlsx'
         self.raw_selected_sheet_name = 'raw_selected'
         self.ethalon_selected_sheet_name = 'ethalon_selected'
@@ -409,6 +409,7 @@ class CFunctions_for_app():
             self._mylistbox.bind('<<ListboxSelect>>', self.onselect_sheet)
         except IndexError:
             pass
+        return self._sheets
 
     def get_columns_actual_in_working_file(self):
         try:
@@ -474,8 +475,7 @@ class CFunctions_for_app():
         os.startfile(self.working_file)
 
     def create_key_column(self):
-        print(self._slave_column_to_change)
-
+        key_list = []
         for col in self._slave_column_to_change:
             self._remove_unnesc_symb_list = []
             for string in self._df_active[col].values:
@@ -484,10 +484,25 @@ class CFunctions_for_app():
                     if symb in  self.unnecessary_symbols_replace_dict.keys():
                         changed_string = changed_string.replace(symb, self.unnecessary_symbols_replace_dict.get(symb))
                 self._remove_unnesc_symb_list.append(changed_string)
-
-            print(self._remove_unnesc_symb_list)
             self._df_active[f"{col}_modified"] = self._remove_unnesc_symb_list
-            f.soft_add_sheet_to_existing_xlsx(self.working_file, self._df_active, self._sheetactual)
+            key_list.append(f"{col}_modified")
+        self._df_active['key'] = self._df_active[key_list[0]]
+        for col in key_list[1:]:
+            self._df_active['key'] = self._df_active['key'].map(str) + self._df_active[col].map(str)
+        self._df_active = self._df_active.drop(columns=key_list)
+
+        f.soft_add_sheet_to_existing_xlsx(self.working_file, self._df_active, self._sheetactual)
+        os.startfile(self.working_file)
+
+    def point_key_field(self):
+        self.key_field = 'key'
+
+    def vlookup_necessary_columns_to_raw(self):
+        sheet_source = self.ethalon_selected_sheet_name
+        df_source = pd.read_excel(self.working_file,sheet_source)
+        key_field = self.key_field.get()
+        df = f.vlookup_column(self._df_active,df_source,key_field,self._slave_column_to_change)
+        f.soft_add_sheet_to_existing_xlsx(self.working_file,df,self.raw_selected_sheet_name)
         os.startfile(self.working_file)
 
 window = tk.Tk()
@@ -501,9 +516,10 @@ window.geometry("830x700+450+1")
 
 ff.accuracy = tk.Entry(window)
 ff.accuracy.place(x=300, y=40)
-ff.accuracy_label = tk.Label(window,text='Accuracy percent')
+ff.accuracy_label = tk.Label(window,text='Accuracy percent',bg="white")
 ff.accuracy_label.place(x=300, y=70)
-
+ff.key_field = tk.Entry(window)
+ff.key_field.place(x=100, y=600)
 
 background.place(x=0, y=0)
 
@@ -559,6 +575,9 @@ map_colums_button.place(x=10, y=490)
 
 key_colum_button = tk.Button(window,text="Create key column",bg="#B4D2F3",fg="black",command=ff.create_key_column,font='Times 13')
 key_colum_button.place(x=10, y=455)
+
+vlookup_button = tk.Button(window,text="Vlookup to raw from source",bg="#B4D2F3",fg="black",command=ff.vlookup_necessary_columns_to_raw,font='Times 13')
+vlookup_button.place(x=10, y=525)
 
 window.mainloop()
 
