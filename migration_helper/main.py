@@ -3,7 +3,7 @@ from tkinter import Tk, PhotoImage, Label, Frame, Menu, StringVar, END, VERTICAL
 import tkinter as tk
 from tkinter.filedialog import askopenfilename
 from tkinter.ttk import Scrollbar
-
+import re
 import pandas as pd
 from fuzzywuzzy import process
 from openpyxl import load_workbook
@@ -16,7 +16,7 @@ class CFunctions:
         matched_value = ''
         if s[1] >= percent:
             matched_value = s[0]
-        return matched_value
+        return matched_value, s[1]
 
     def intermediate_changed_list(self,string,unnecessary_symbols_list):
         mapping_item_dictionary = {}
@@ -30,6 +30,7 @@ class CFunctions:
             changed_string = changed_string.translate({ord(symb): None})
 
         mapping_item_dictionary.update({changed_string:string})
+
         return changed_string,mapping_item_dictionary
 
     def soft_add_sheet_to_existing_xlsx(self,full_path,df,sheet_name):
@@ -100,7 +101,20 @@ class CFunctions:
         os.startfile(temp_file)
         return df_current,temp_file
 
+    def list_correction_to_ethalon_naming_list(self,incoming_list,ethalon_naming_list,percent):
+        corrected_list, problematic_items = [], {}
 
+        for item in incoming_list:
+            value = f.item_match_in_list_by_percent(item, ethalon_naming_list, percent)
+            if value == '':
+                s = process.extractOne(item, ethalon_naming_list)
+                problematic_items.update({item:s[1]})
+            corrected_list.append(value[0])
+        if problematic_items != {}:
+            print(f"Minimal percent: {min(problematic_items.values())}%")
+        if problematic_items != {}:
+            print(f"COGI: {problematic_items}")
+        return corrected_list,problematic_items
 
 
 
@@ -108,18 +122,38 @@ class CFunctions:
 class CFunctions_for_app():
     def __init__(self,window,background):
         self.background = background
+        self.accuracy = tk.IntVar()
         self._sheets = ''
         self._sheetactual = ''
         self._path = ''
         self._mylistbox = ''
         self._mylistbox_two = ''
+        self.unnecessary_symbols_list = ["№", "_","-", "%", "/", "|", ",", ".", ".", ",", "!", " "]
+        self.unnecessary_symbols_replace_dict = {"ß":"ss",
+                                                 "ö":"oe",
+                                                 "ü":"u"}
         self._slave_columns_selection = []
         self._slave_column_to_change = []
+        self._remove_unnesc_symb_list = []
         self._cols = []
         self._information_label = tk.Label(window)
+        self._information_label_path = tk.Label(window)
+        self._information_label_sheet = tk.Label(window)
+        self._information_label_columns = tk.Label(window)
+        self._information_label_confirm_dataframe = tk.Label(window)
+        self._information_label_export_raw_status = tk.Label(window)
+        self._information_label_export_ethalon_status = tk.Label(window)
+        self._information_label_working_path = tk.Label(window)
+        self._information_label_working_sheet = tk.Label(window)
+        self._information_label_working_columns_to_change = tk.Label(window)
+        self._information_label_working_column_to_change = tk.Label(window)
+        self._information_label_working_column_ethalon = tk.Label(window)
+        self._information_label_working_column_result = tk.Label(window)
         self._show_df_button = tk.Button()
         self._df_income_selected = pd.DataFrame()
+        self._df_active = pd.DataFrame()
         self.confirmed_col_to_change = ''
+        self.confirmed_col_ethalon = ''
         self.working_file = 'working_file.xlsx'
         self.raw_selected_sheet_name = 'raw_selected'
         self.ethalon_selected_sheet_name = 'ethalon_selected'
@@ -221,6 +255,7 @@ class CFunctions_for_app():
 
         return value
 
+
     def onselect_col(self,evt):
         w = evt.widget
         print(w.curselection())
@@ -239,6 +274,9 @@ class CFunctions_for_app():
     def get_path(self):
         path = askopenfilename()
         self._path = path
+        self._information_label_path= tk.Label(window, text=self._path,background='white')
+        self._information_label_path.place(x=100, y=15)
+        return self._path
 
     def get_sheets(self):
         try:
@@ -247,7 +285,7 @@ class CFunctions_for_app():
             self._mylistbox = tk.Listbox(window)
             for item in self._sheets:
                 self._mylistbox.insert(END, item)
-            self._mylistbox.pack(pady=15)
+            self._mylistbox.place(x=600,y=500)
             self._mylistbox.bind('<<ListboxSelect>>', self.onselect_sheet)
         except IndexError:
             pass
@@ -255,11 +293,14 @@ class CFunctions_for_app():
     def get_columns_actual(self):
         try:
             df = pd.read_excel(self._path,self._sheetactual)
+
+            self._information_label_sheet = tk.Label(window, text=self._sheetactual, background='white')
+            self._information_label_sheet.place(x=120, y=85)
             self._cols = df.columns
             self._mylistbox.delete(0, END)
             for item in self._cols:
                 self._mylistbox.insert(END, item)
-            self._mylistbox.pack(pady=15)
+            self._mylistbox.place(x=600,y=500)
             self._mylistbox.bind('<<ListboxSelect>>', self.onselect_col)
         except IndexError:
             pass
@@ -271,23 +312,34 @@ class CFunctions_for_app():
         if selection[0] not in self._slave_columns_selection:
             self._slave_columns_selection.append(self._cols[selection[0]])
         else: pass
-        self._information_label.destroy()
-        self._information_label = tk.Label(window, text=self._slave_columns_selection)
-        self._information_label.place(x=450, y=555)
+        self._slave_columns_selection = pd.Series(self._slave_columns_selection).unique().tolist()
+        self._information_label_columns.destroy()
+        self._information_label_columns = tk.Label(window, text=self._slave_columns_selection, background='white')
+        self._information_label_columns.place(x=150, y=120)
 
 
     def destroy_listbox(self):
         self._slave_columns_selection = []
         self._mylistbox.destroy()
         self._information_label.destroy()
-        self._information_label = tk.Label(window, text='No selected columns')
+        self._information_label_path.destroy()
+        self._information_label_sheet.destroy()
+        self._information_label_columns.destroy()
+        self._information_label_export_raw_status.destroy()
+        self._information_label_confirm_dataframe.destroy()
+
 
 
     def destroy_list_col_to_change(self):
         self._slave_column_to_change = []
         self._mylistbox.destroy()
-        self._information_label.destroy()
-        self._information_label = tk.Label(window, text='No selected columns')
+        self._information_label_working_path.destroy()
+        self._information_label_working_sheet.destroy()
+        self._information_label_working_column_to_change.destroy()
+        self._information_label_working_column_ethalon.destroy()
+        self._information_label_working_column_result.destroy()
+        self._information_label_export_ethalon_status.destroy()
+        self._information_label_working_columns_to_change.destroy()
 
 
     def change(self,df,event, row, col):
@@ -313,7 +365,8 @@ class CFunctions_for_app():
                 e.bind('<Return>', lambda event, y=r, x=c: ff.change(self._df_income_selected,event, y, x))
                 # ENTER on keypad
                 e.bind('<KP_Enter>', lambda event, y=r, x=c: ff.change(self._df_income_selected,event, y, x))
-
+        self._information_label_confirm_dataframe = tk.Label(window, text="Successfully confirmed", background='white')
+        self._information_label_confirm_dataframe.place(x=170, y=150)
         window_dataframe.mainloop()
 
 
@@ -324,6 +377,8 @@ class CFunctions_for_app():
         os.startfile(self.working_file)
         self._df_income_selected = pd.DataFrame()
         self._slave_columns_selection = []
+        self._information_label_export_raw_status = tk.Label(window, text="Export is successfully finished", background='white')
+        self._information_label_export_raw_status.place(x=260, y=220)
 
     def add_selected_income_data_to_temporary_xlsx(self):
         print(self._df_income_selected)
@@ -340,6 +395,8 @@ class CFunctions_for_app():
         os.startfile(self.working_file)
         self._df_income_selected = pd.DataFrame()
         self._slave_columns_selection = []
+        self._information_label_export_ethalon_status = tk.Label(window, text="Export is successfully finished", background='white')
+        self._information_label_export_ethalon_status.place(x=260, y=255)
 
     def get_sheets_in_working_file(self):
         try:
@@ -348,7 +405,7 @@ class CFunctions_for_app():
             self._mylistbox = tk.Listbox(window)
             for item in self._sheets:
                 self._mylistbox.insert(END, item)
-            self._mylistbox.pack(pady=15)
+            self._mylistbox.place(x=600,y=500)
             self._mylistbox.bind('<<ListboxSelect>>', self.onselect_sheet)
         except IndexError:
             pass
@@ -360,40 +417,78 @@ class CFunctions_for_app():
             self._mylistbox.delete(0, END)
             for item in self._cols:
                 self._mylistbox.insert(END, item)
-            self._mylistbox.pack(pady=15)
+            self._mylistbox.place(x=600,y=500)
             self._mylistbox.bind('<<ListboxSelect>>', self.onselect_col)
             self._slave_column_to_change = []
         except IndexError:
             pass
 
     def define_key_columns_selection_in_working_file(self):
-        df = pd.read_excel(self.working_file,self._sheetactual)
-        self._cols = df.columns
+        self._df_active = pd.read_excel(self.working_file,self._sheetactual)
+        self._cols = self._df_active.columns
         selection = self._mylistbox.curselection()
         if selection[0] not in self._slave_columns_selection:
             self._slave_column_to_change.append(self._cols[selection[0]])
         else: pass
-        self._information_label.destroy()
-        self._information_label = tk.Label(window, text=self._slave_column_to_change)
-        self._information_label.place(x=450, y=555)
+        self._slave_column_to_change = pd.Series(self._slave_column_to_change).unique().tolist()
+        self._information_label_working_columns_to_change.destroy()
+        self._information_label_working_columns_to_change = tk.Label(window, text=self._slave_column_to_change)
+        self._information_label_working_columns_to_change.place(x=290, y=320)
         print(self._slave_column_to_change)
 
     def confirm_column_to_change(self):
 
         self.confirmed_col_to_change = self._slave_column_to_change[0]
-        self._information_label.destroy()
-        self._information_label = tk.Label(window, text=self.confirmed_col_to_change)
-        self._information_label.place(x=450, y=555)
+        self._information_label_working_column_to_change.destroy()
+        self._information_label_working_column_to_change = tk.Label(window, text=self.confirmed_col_to_change)
+        self._information_label_working_column_to_change.place(x=220, y=390)
         print(self.confirmed_col_to_change)
+        self._slave_column_to_change = []
 
+    def confirm_column_ethalon(self):
+
+        self.confirmed_col_ethalon = self._slave_column_to_change[0]
+        self._information_label_working_column_to_change.destroy()
+        self._information_label_working_column_ethalon = tk.Label(window, text=self.confirmed_col_ethalon)
+        self._information_label_working_column_ethalon.place(x=220, y=421)
+        print(self.confirmed_col_ethalon, self.confirmed_col_to_change)
+        self._slave_column_to_change = []
 
     def erase_confirmed_column_to_change(self):
-        self._slave_column_to_change = []
-        self.confirmed_col_to_change = 'No confirmed column to change'
-        self._information_label.destroy()
-        self._information_label = tk.Label(window, text=self.confirmed_col_to_change)
-        self._information_label.place(x=450, y=555)
+
+        self.confirmed_col_to_change = []
+        self._information_label_working_column_to_change.destroy()
         print(self.confirmed_col_to_change)
+
+    def df_column_match_to_ethalon_column_by_percent(self):
+        accuracy = int(self.accuracy.get())
+        print(accuracy)
+        df_raw = pd.read_excel(self.working_file,sheet_name=self.raw_selected_sheet_name)
+        conf_change_list = df_raw[self.confirmed_col_to_change].values
+        df_eth = pd.read_excel(self.working_file,sheet_name=self.ethalon_selected_sheet_name)
+        conf_eth_list = df_eth[self.confirmed_col_ethalon].values
+        corrected_list,problematic_items = f.list_correction_to_ethalon_naming_list(conf_change_list,conf_eth_list,accuracy)
+        df_raw[f"mapped_from_{self.confirmed_col_ethalon}"] =  corrected_list
+        print(corrected_list)
+        f.soft_add_sheet_to_existing_xlsx(self.working_file,df_raw,self.raw_selected_sheet_name)
+        os.startfile(self.working_file)
+
+    def create_key_column(self):
+        print(self._slave_column_to_change)
+
+        for col in self._slave_column_to_change:
+            self._remove_unnesc_symb_list = []
+            for string in self._df_active[col].values:
+                changed_string,mapping_item_dictionary = f.intermediate_changed_list(string,self.unnecessary_symbols_list)
+                for symb in changed_string:
+                    if symb in  self.unnecessary_symbols_replace_dict.keys():
+                        changed_string = changed_string.replace(symb, self.unnecessary_symbols_replace_dict.get(symb))
+                self._remove_unnesc_symb_list.append(changed_string)
+
+            print(self._remove_unnesc_symb_list)
+            self._df_active[f"{col}_modified"] = self._remove_unnesc_symb_list
+            f.soft_add_sheet_to_existing_xlsx(self.working_file, self._df_active, self._sheetactual)
+        os.startfile(self.working_file)
 
 window = tk.Tk()
 bg = PhotoImage(file="C:\\ageless\\migration_helper\\images\\login_background.png")
@@ -402,12 +497,15 @@ background = Label(window, image=bg)
 ff = CFunctions_for_app(window,background)
 f = CFunctions()
 window.title("Migration Helper v 0.1")
-window.geometry("830x600+500+150")
+window.geometry("830x700+450+1")
+
+ff.accuracy = tk.Entry(window)
+ff.accuracy.place(x=300, y=40)
+ff.accuracy_label = tk.Label(window,text='Accuracy percent')
+ff.accuracy_label.place(x=300, y=70)
 
 
 background.place(x=0, y=0)
-
-
 
 open_file_button = tk.Button(window,text="Open file",bg="#B4D2F3",fg="black",command=ff.get_path,font='Times 13')
 open_file_button.place(x=10, y=10)
@@ -421,7 +519,7 @@ define_columns_button.place(x=10, y=78)
 define_selected_columns_button = tk.Button(window,text="Choose columns",bg="#B4D2F3",fg="black",command=ff.define_key_columns_selection,font='Times 13')
 define_selected_columns_button.place(x=10, y=112)
 
-show_df_button = tk.Button(window,text="Preview dataframe",bg="#B4D2F3",fg="black",command=ff.show_dataframe,font='Times 13')
+show_df_button = tk.Button(window,text="Confirm dataframe",bg="#B4D2F3",fg="black",command=ff.show_dataframe,font='Times 13')
 show_df_button.place(x=10, y=146)
 
 to_xlsx_df_button = tk.Button(window,text="Selected raw dataframe to xlsx",bg="#FED807",fg="black",command=ff.put_selected_income_data_to_temporary_xlsx,font='Times 13')
@@ -438,20 +536,29 @@ get_sheets_in_working_file_button.place(x=10, y=282)
 get_cols_in_working_file_button = tk.Button(window,text="Get columns from working file",bg="#FCA65E",fg="black",command=ff.get_columns_actual_in_working_file,font='Times 13')
 get_cols_in_working_file_button.place(x=10, y=316)
 
-add_columns_actual_in_working_file_button = tk.Button(window,text="Add columns from working file for change",bg="#FCA65E",fg="black",command=ff.define_key_columns_selection_in_working_file,font='Times 13')
+add_columns_actual_in_working_file_button = tk.Button(window,text="Add columns from working file for workout",bg="#FCA65E",fg="black",command=ff.define_key_columns_selection_in_working_file,font='Times 13')
 add_columns_actual_in_working_file_button.place(x=10, y=350)
 
 confirm_columns_to_change_button = tk.Button(window,text="Confirm column to change",bg="#FED807",fg="black",command=ff.confirm_column_to_change,font='Times 13')
 confirm_columns_to_change_button.place(x=10, y=384)
 
-erase_listbox_button = tk.Button(window,text="Clear input data",bg="#FC0804",fg="#F9F3F3",command=ff.destroy_listbox,font='Times 13')
+erase_listbox_button = tk.Button(window,text="Clear main selection",bg="#FC0804",fg="#F9F3F3",command=ff.destroy_listbox,font='Times 13')
 erase_listbox_button.place(x=555, y=10)
 
-erase_working_button = tk.Button(window,text="Clear working file data",bg="#FC0804",fg="#F9F3F3",command=ff.destroy_list_col_to_change,font='Times 13')
+erase_working_button = tk.Button(window,text="Clear change data selection",bg="#FC0804",fg="#F9F3F3",command=ff.destroy_list_col_to_change,font='Times 13')
 erase_working_button.place(x=555, y=44)
 
 erase_confirmed_column_to_change_button = tk.Button(window,text="Clear confirmed column to change",bg="#FC0804",fg="#F9F3F3",command=ff.erase_confirmed_column_to_change,font='Times 13')
 erase_confirmed_column_to_change_button.place(x=555, y=78)
+
+confirm_columns_to_change_button = tk.Button(window,text="Confirm column ethalon",bg="#07FE68",fg="black",command=ff.confirm_column_ethalon,font='Times 13')
+confirm_columns_to_change_button.place(x=10, y=419)
+
+map_colums_button = tk.Button(window,text="Simple map columns",bg="#B4D2F3",fg="black",command=ff.df_column_match_to_ethalon_column_by_percent,font='Times 13')
+map_colums_button.place(x=10, y=490)
+
+key_colum_button = tk.Button(window,text="Create key column",bg="#B4D2F3",fg="black",command=ff.create_key_column,font='Times 13')
+key_colum_button.place(x=10, y=455)
 
 window.mainloop()
 
