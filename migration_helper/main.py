@@ -130,6 +130,7 @@ class CFunctions_for_app():
         self.background = background
         self.accuracy = tk.IntVar()
         self.created_ethalon_column = ''
+        self.pch_export_sheetname = 'frame'
         self.technical_sheet = 'ethalon_processed_sheet'
         self._sheets = ''
         self._sheetactual = ''
@@ -515,14 +516,24 @@ class CFunctions_for_app():
         self.key_field = 'key'
 
     def vlookup_necessary_columns_to_raw(self):
-        sheet_source = self.ethalon_selected_sheet_name
-        sheet_raw = self.raw_selected_sheet_name
-        df_source = pd.read_excel(self.working_file,sheet_source)
-        df_current = pd.read_excel(self.working_file,sheet_raw)
-        key_field = self.key_field.get()
-        df = f.vlookup_column(df_current,df_source,key_field,self._slave_column_to_change)
-        f.soft_add_sheet_to_existing_xlsx(self.working_file,df,self.raw_selected_sheet_name)
-        os.startfile(self.working_file)
+        try:
+            sheet_source = self.ethalon_selected_sheet_name
+            sheet_raw = self.raw_selected_sheet_name
+            df_source = pd.read_excel(self.working_file,sheet_source)
+            df_current = pd.read_excel(self.working_file,sheet_raw)
+            key_field = self.key_field.get()
+            df = f.vlookup_column(df_current,df_source,key_field,self._slave_column_to_change)
+            f.soft_add_sheet_to_existing_xlsx(self.working_file,df,self.raw_selected_sheet_name)
+            os.startfile(self.working_file)
+        except Exception:
+            sheet_source = 'frame'
+            sheet_raw = self.raw_selected_sheet_name
+            df_source = pd.read_excel(self.working_file,sheet_source)
+            df_current = pd.read_excel(self.working_file,sheet_raw)
+            key_field = self.key_field.get()
+            df = f.vlookup_column(df_current,df_source,key_field,self._slave_column_to_change)
+            f.soft_add_sheet_to_existing_xlsx(self.working_file,df,self.raw_selected_sheet_name)
+            os.startfile(self.working_file)
 
     def create_ethalon_column(self):
         self.created_ethalon_column = self._slave_column_to_change[0]
@@ -586,6 +597,9 @@ class CFunctions_for_app():
                 # ENTER on keypad
                 e.bind('<KP_Enter>', lambda event, y=r, x=c: ff.change(self._df_active,event, y, x))
 
+    def pch_export_frame_to_excel(self):
+        f.soft_add_sheet_to_existing_xlsx(self.working_file, self._df_active,self.pch_export_sheetname)
+        os.startfile(self.working_file)
 
     def perform_dataframe_checks(self):
 
@@ -616,6 +630,9 @@ class CFunctions_for_app():
         show_df_button = tk.Button(window_checks, text="Show dataframe", bg="#B4D2F3", fg="black", command=self.pch_show_df,
                                      font='Times 13')
         show_df_button.place(x=10, y=10)
+        export_button = tk.Button(window_checks, text="Export to excel", bg="#07FE68",fg="black", command=self.pch_export_frame_to_excel,
+                                     font='Times 13')
+        export_button.place(x=10, y=130)
 
 
         background.place(x=0, y=0)
