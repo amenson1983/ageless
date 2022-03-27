@@ -4,6 +4,9 @@ import tkinter as tk
 from tkinter.filedialog import askopenfilename
 from tkinter.ttk import Scrollbar
 import re
+import pandera
+from pandera import Column, Check
+import numpy as np
 import pandas as pd
 from fuzzywuzzy import process
 from openpyxl import load_workbook
@@ -122,8 +125,12 @@ class CFunctions:
 
 class CFunctions_for_app():
     def __init__(self,window,background):
+        self.pch_value_to_loc = ''
+        self.pch_col_index = 0
         self.background = background
         self.accuracy = tk.IntVar()
+        self.created_ethalon_column = ''
+        self.technical_sheet = 'ethalon_processed_sheet'
         self._sheets = ''
         self._sheetactual = ''
         self._path = ''
@@ -132,8 +139,11 @@ class CFunctions_for_app():
         self.unnecessary_symbols_list = ["№", "_","-", "%", "/", "|", ",", ".", ".", ",", "!", " "]
         self.unnecessary_symbols_replace_dict = {"ß":"ss",
                                                  "ö":"oe",
-                                                 "ü":"u",
-                                                 "ä":"a"}
+                                                 "ü":"u","ē":"e",
+                                                 "ä":"a",
+                                                 "ā":"a",
+                                                 "ī":"i",
+                                                 "ū":"u"}
         self._slave_columns_selection = []
         self._slave_column_to_change = []
         self._remove_unnesc_symb_list = []
@@ -157,6 +167,7 @@ class CFunctions_for_app():
         self.confirmed_col_to_change = ''
         self.confirmed_col_ethalon = ''
         self.key_field = tk.StringVar(window)
+        self.key_field_label = ''
         self.working_file = 'working_file.xlsx'
         self.raw_selected_sheet_name = 'raw_selected'
         self.ethalon_selected_sheet_name = 'ethalon_selected'
@@ -513,21 +524,124 @@ class CFunctions_for_app():
         f.soft_add_sheet_to_existing_xlsx(self.working_file,df,self.raw_selected_sheet_name)
         os.startfile(self.working_file)
 
+    def create_ethalon_column(self):
+        self.created_ethalon_column = self._slave_column_to_change[0]
+        df = pd.read_excel(self.working_file,self._sheetactual)
+        created_column = df[self.created_ethalon_column].values
+        changed_column = []
+        for item in created_column:
+            try:
+                item_ = str(item).casefold().capitalize()
+                changed_column.append(item_)
+            except Exception:
+                changed_column.append(item)
+        unique_column = pd.Series(changed_column).unique()
+        dubs = []
+        for item in unique_column:
+            count = 0
+            for raw_item in changed_column:
+                if item == raw_item:
+                    count +=1
+            dubs.append(count-1)
+        df_changed = pd.DataFrame()
+        df_changed[f'ethalon_processed_{self.created_ethalon_column}'] = unique_column
+        df_changed[f'dublicates_count'] = dubs
+        f.soft_add_sheet_to_existing_xlsx(self.working_file,df_changed,self.technical_sheet)
+        print(f"changed_column: {len(unique_column)}\n created_column: {len(created_column)}")
+        os.startfile(self.working_file)
+    def loc_df_by_column_value(self):
+        loc_value = self.pch_value_to_loc.get()
+        ind = int(self.pch_col_index.get())
+
+        print(f"So far the value is {loc_value}")
+        df0 = pd.read_excel(self.working_file, self._sheetactual)
+        self._df_active = df0.loc[df0[self._df_active.columns[ind]] == str(loc_value)]
+
+        rows, cols = self._df_active.shape
+        window_dataframe = tk.Tk()
+        for r in range(rows):
+            for c in range(cols):
+                e = tk.Entry(window_dataframe,width=30)
+                e.insert(0, self._df_active.iloc[r, c])
+                e.grid(row=r, column=c)
+                # ENTER
+                e.bind('<Return>', lambda event, y=r, x=c: ff.change(self._df_active,event, y, x))
+                # ENTER on keypad
+                e.bind('<KP_Enter>', lambda event, y=r, x=c: ff.change(self._df_active,event, y, x))
+        print(self._df_active)
+
+    def pch_clear_df(self):
+        self._df_active = pd.read_excel(self.working_file, self._sheetactual)
+
+    def pch_show_df(self):
+        rows, cols = self._df_active.shape
+        window_dataframe = tk.Tk()
+        for r in range(rows):
+            for c in range(cols):
+                e = tk.Entry(window_dataframe,width=30)
+                e.insert(0, self._df_active.iloc[r, c])
+                e.grid(row=r, column=c)
+                # ENTER
+                e.bind('<Return>', lambda event, y=r, x=c: ff.change(self._df_active,event, y, x))
+                # ENTER on keypad
+                e.bind('<KP_Enter>', lambda event, y=r, x=c: ff.change(self._df_active,event, y, x))
+
+
+    def perform_dataframe_checks(self):
+
+        window_checks = tk.Toplevel()
+        bg = PhotoImage(file="C:\\ageless\\migration_helper\\images\\login_background.png")
+        background = Label(window_checks, image=bg)
+        window_checks.title("Checks window")
+        window_checks.geometry("830x700+450+1")
+
+        self.pch_value_to_loc = tk.Entry(window_checks)
+        self.pch_value_to_loc.place(x=555, y=146)
+        pch_value_label = tk.Label(window_checks, text='Value to loc', bg="white")
+        pch_value_label.place(x=555, y=166)
+
+        self.pch_col_index = tk.Entry(window_checks)
+        self.pch_col_index.insert(0, 0)
+        self.pch_col_index.place(x=555, y=196)
+        pch_col_index_label = tk.Label(window_checks, text='Column index to loc', bg="white")
+        pch_col_index_label.place(x=555, y=211)
+
+        clear_button = tk.Button(window_checks, text="Clear dataframe", bg="#FC0804",fg="#F9F3F3", command=self.pch_clear_df,
+                                     font='Times 13')
+        clear_button.place(x=10, y=90)
+
+        open_file_button = tk.Button(window_checks, text="Loc by value", bg="#B4D2F3", fg="black", command=self.loc_df_by_column_value,
+                                     font='Times 13')
+        open_file_button.place(x=10, y=50)
+        show_df_button = tk.Button(window_checks, text="Show dataframe", bg="#B4D2F3", fg="black", command=self.pch_show_df,
+                                     font='Times 13')
+        show_df_button.place(x=10, y=10)
+
+
+        background.place(x=0, y=0)
+        window_checks.mainloop()
+
 window = tk.Tk()
 bg = PhotoImage(file="C:\\ageless\\migration_helper\\images\\login_background.png")
 background = Label(window, image=bg)
 
 ff = CFunctions_for_app(window,background)
 f = CFunctions()
+
 window.title("Migration Helper v 0.1")
 window.geometry("830x700+450+1")
 
 ff.accuracy = tk.Entry(window)
-ff.accuracy.place(x=300, y=40)
+ff.accuracy.insert(0, 75)
+ff.accuracy.place(x=555, y=146)
 ff.accuracy_label = tk.Label(window,text='Accuracy percent',bg="white")
-ff.accuracy_label.place(x=300, y=70)
+ff.accuracy_label.place(x=690, y=146)
+
 ff.key_field = tk.Entry(window)
-ff.key_field.place(x=100, y=600)
+ff.key_field.insert(0, "key")
+ff.key_field.place(x=555, y=172)
+ff.key_field_label = tk.Label(window,text='Key column for vlookup',bg="white")
+ff.key_field_label.place(x=690, y=172)
 
 background.place(x=0, y=0)
 
@@ -586,6 +700,12 @@ key_colum_button.place(x=10, y=455)
 
 vlookup_button = tk.Button(window,text="Vlookup to raw from source",bg="#B4D2F3",fg="black",command=ff.vlookup_necessary_columns_to_raw,font='Times 13')
 vlookup_button.place(x=10, y=525)
+
+ethalon_column_creation_button = tk.Button(window,text="Ethalon column creation",bg="#B4D2F3",fg="black",command=ff.create_ethalon_column,font='Times 13')
+ethalon_column_creation_button.place(x=10, y=560)
+
+perform_checks_creation_button = tk.Button(window,text="Perform dataframe checks",bg="#B4D2F3",fg="black",command=ff.perform_dataframe_checks,font='Times 13')
+perform_checks_creation_button.place(x=10, y=595)
 
 window.mainloop()
 
