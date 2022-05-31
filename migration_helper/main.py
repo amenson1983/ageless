@@ -127,6 +127,10 @@ class CFunctions_for_app():
     def __init__(self,window,background):
         self.pch_value_to_loc = ''
         self.pch_col_index = 0
+        self.pch_col_to_replace_symbols_entry = ''
+        self.pch_col_to_replace_for_symbols_entry = ''
+        self.pch_col_to_replace_symbols = ''
+
         self.background = background
         self.accuracy = tk.IntVar()
         self.created_ethalon_column = ''
@@ -137,7 +141,8 @@ class CFunctions_for_app():
         self._path = ''
         self._mylistbox = ''
         self._mylistbox_two = ''
-        self.unnecessary_symbols_list = ["№", "_","-", "%", "/", "|", ",", ".", ".", ",", "!", " "]
+        self.unnecessary_symbols_list = ["№", "#","_","-", "%", "/", "|", ",", ".", ".", ",", "!", " ", "*",
+                                         "(",")"]
         self.unnecessary_symbols_replace_dict = {"ß":"ss",
                                                  "ö":"oe",
                                                  "ü":"u","ē":"e",
@@ -145,6 +150,7 @@ class CFunctions_for_app():
                                                  "ā":"a",
                                                  "ī":"i",
                                                  "ū":"u"}
+        self.full_words_to_replace = {"ГРИНДЕКС":""}
         self._slave_columns_selection = []
         self._slave_column_to_change = []
         self._remove_unnesc_symb_list = []
@@ -386,7 +392,10 @@ class CFunctions_for_app():
 
 
     def put_selected_income_data_to_temporary_xlsx(self):
-        print(self._df_income_selected)
+        df1 = pd.read_excel(self._path, self._sheetactual)
+        for col in self._slave_columns_selection:
+            self._df_income_selected[col] = df1[col]
+
         self._df_income_selected.to_excel(self.working_file,sheet_name=self.raw_selected_sheet_name,index=False)
         #f.soft_add_sheet_to_existing_xlsx(self.working_file,self._df_income_selected,self.raw_selected_sheet_name)
         os.startfile(self.working_file)
@@ -396,6 +405,9 @@ class CFunctions_for_app():
         self._information_label_export_raw_status.place(x=260, y=220)
 
     def add_selected_income_data_to_temporary_xlsx(self):
+        df1 = pd.read_excel(self._path, self._sheetactual)
+        for col in self._slave_columns_selection:
+            self._df_income_selected[col] = df1[col]
         print(self._df_income_selected)
         self._df_income_selected.to_excel(self.working_file,sheet_name=self.raw_selected_sheet_name,index=False)
         #f.soft_add_sheet_to_existing_xlsx(self.working_file,self._df_income_selected,self.raw_selected_sheet_name)
@@ -404,6 +416,9 @@ class CFunctions_for_app():
         self._slave_columns_selection = []
 
     def add_selected_ethalon_data_to_temporary_xlsx(self):
+        df1 = pd.read_excel(self._path, self._sheetactual)
+        for col in self._slave_columns_selection:
+            self._df_income_selected[col] = df1[col]
         print(self._df_income_selected)
         #self._df_income_selected.to_excel(self.working_file,sheet_name=self.raw_selected_sheet_name,index=False)
         f.soft_add_sheet_to_existing_xlsx(self.working_file,self._df_income_selected,self.ethalon_selected_sheet_name)
@@ -497,6 +512,8 @@ class CFunctions_for_app():
         for col in self._slave_column_to_change:
             self._remove_unnesc_symb_list = []
             for string in self._df_active[col].values:
+
+                string = string.replace("ГРИНДЕКС","")
                 changed_string,mapping_item_dictionary = f.intermediate_changed_list(string,self.unnecessary_symbols_list)
                 for symb in changed_string:
                     if symb in  self.unnecessary_symbols_replace_dict.keys():
@@ -585,6 +602,10 @@ class CFunctions_for_app():
         self._df_active = pd.read_excel(self.working_file, self._sheetactual)
 
     def pch_show_df(self):
+        df =  pd.read_excel(self.working_file, self._sheetactual)
+        self._df_active = pd.DataFrame()
+        for i in self._slave_column_to_change:
+            self._df_active[i] = df[i]
         rows, cols = self._df_active.shape
         window_dataframe = tk.Tk()
         for r in range(rows):
@@ -599,6 +620,36 @@ class CFunctions_for_app():
 
     def pch_export_frame_to_excel(self):
         f.soft_add_sheet_to_existing_xlsx(self.working_file, self._df_active,self.pch_export_sheetname)
+        os.startfile(self.working_file)
+
+    def pch_replace_symbols(self):
+        col_index = int(self.pch_col_index.get())
+        raw = self._df_active[self._df_active.columns[col_index]].values
+        dictionary = dict(zip(self.pch_col_to_replace_symbols_entry.get(),self.pch_col_to_replace_for_symbols_entry.get()))
+        result = []
+        for string in raw:
+            new_string = ''
+            for symb in string:
+                if symb in dictionary.keys():
+                    new_symb = dictionary.get(symb)
+                    new_string += new_symb
+                else:
+                    new_string += symb
+            result.append(new_string)
+        print(result)
+        self._df_active[self._df_active.columns[col_index]] = result
+        rows, cols = self._df_active.shape
+        window_dataframe = tk.Tk()
+        for r in range(rows):
+            for c in range(cols):
+                e = tk.Entry(window_dataframe,width=30)
+                e.insert(0, self._df_active.iloc[r, c])
+                e.grid(row=r, column=c)
+                # ENTER
+                e.bind('<Return>', lambda event, y=r, x=c: ff.change(self._df_active,event, y, x))
+                # ENTER on keypad
+                e.bind('<KP_Enter>', lambda event, y=r, x=c: ff.change(self._df_active,event, y, x))
+        f.soft_add_sheet_to_existing_xlsx(self.working_file,self._df_active,self.pch_export_sheetname)
         os.startfile(self.working_file)
 
     def perform_dataframe_checks(self):
@@ -620,6 +671,15 @@ class CFunctions_for_app():
         pch_col_index_label = tk.Label(window_checks, text='Column index to loc', bg="white")
         pch_col_index_label.place(x=555, y=211)
 
+        self.pch_col_to_replace_symbols_entry = tk.Entry(window_checks)
+        self.pch_col_to_replace_symbols_entry.insert(0, ["_","A"])
+        self.pch_col_to_replace_symbols_entry.place(x=555, y=250)
+
+        self.pch_col_to_replace_for_symbols_entry = tk.Entry(window_checks)
+        self.pch_col_to_replace_for_symbols_entry.insert(0, ["",""])
+        self.pch_col_to_replace_for_symbols_entry.place(x=555, y=300)
+
+
         clear_button = tk.Button(window_checks, text="Clear dataframe", bg="#FC0804",fg="#F9F3F3", command=self.pch_clear_df,
                                      font='Times 13')
         clear_button.place(x=10, y=90)
@@ -633,7 +693,9 @@ class CFunctions_for_app():
         export_button = tk.Button(window_checks, text="Export to excel", bg="#07FE68",fg="black", command=self.pch_export_frame_to_excel,
                                      font='Times 13')
         export_button.place(x=10, y=130)
-
+        replace_button = tk.Button(window_checks, text="Replace symbols in column", bg="#07FE68",fg="black", command=self.pch_replace_symbols,
+                                     font='Times 13')
+        replace_button.place(x=10, y=130)
 
         background.place(x=0, y=0)
         window_checks.mainloop()
@@ -665,6 +727,7 @@ background.place(x=0, y=0)
 open_file_button = tk.Button(window,text="Open file",bg="#B4D2F3",fg="black",command=ff.get_path,font='Times 13')
 open_file_button.place(x=10, y=10)
 
+
 define_sheets_button = tk.Button(window,text="Get sheets",bg="#B4D2F3",fg="black",command=ff.get_sheets,font='Times 13')
 define_sheets_button.place(x=10, y=44)
 
@@ -674,7 +737,7 @@ define_columns_button.place(x=10, y=78)
 define_selected_columns_button = tk.Button(window,text="Choose columns",bg="#B4D2F3",fg="black",command=ff.define_key_columns_selection,font='Times 13')
 define_selected_columns_button.place(x=10, y=112)
 
-show_df_button = tk.Button(window,text="Confirm dataframe",bg="#B4D2F3",fg="black",command=ff.show_dataframe,font='Times 13')
+show_df_button = tk.Button(window,text="Show dataframe",bg="#B4D2F3",fg="black",command=ff.show_dataframe,font='Times 13')
 show_df_button.place(x=10, y=146)
 
 to_xlsx_df_button = tk.Button(window,text="Selected raw dataframe to xlsx",bg="#FED807",fg="black",command=ff.put_selected_income_data_to_temporary_xlsx,font='Times 13')

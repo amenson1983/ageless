@@ -54,6 +54,8 @@ class CInformations:
                resulting_file, tab_sap, tab_kbnk, tab_tiban,kbnk_key_columns,kbnk_columns_to_migrate,tiban_key_columns
 
 class CFunctions:
+    def check_columns_for_nans(self,df):
+        [print(df[col].hasnans) for col in df.columns]  # Check columns for NaN-s
 
     def item_match_in_list_by_percent(self,item,list_values,percent):
         s = process.extractOne(item, list_values)
@@ -406,5 +408,5 @@ if __name__ == '__main__':
 
 
 
-
+    f.soft_add_sheet_to_existing_xlsx()
 
